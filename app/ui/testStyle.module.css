@@ -1,0 +1,22 @@
+
+
+.test {
+    h1 {
+        font-size: 500%;
+        font-weight: bold;
+    }
+    p {
+        margin-top: 2%;
+        font-size: 150%;
+    }
+    font-family: Helvetica, sans-serif;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.roundedBox {
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    border-radius : 20px; background-color : var(--foreground);
+}
