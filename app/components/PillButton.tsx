@@ -1,17 +1,16 @@
 "use client";
 
-import { ReactNode, MouseEvent } from "react";
+import { ButtonHTMLAttributes, ReactNode } from "react";
 
-interface props {
+interface props extends ButtonHTMLAttributes<HTMLButtonElement> {
     children: ReactNode;
-    onClick: (event: MouseEvent<HTMLButtonElement>) => void;
 }
 
-export default function PillButton({ children, onClick }: props) {
+export default function PillButton({ children, className = "", ...props }: props) {
     return (
         <button
-            onClick={onClick}
-            className="px-6 py-2 border-2 border-blue-700 text-blue-700 font-semibold text-base rounded-full transition-all duration-200 ease-in-out hover:bg-blue-700/10"
+            {...props}
+            className={`px-6 py-2 border-2 border-blue-700 text-blue-700 font-semibold text-base rounded-full transition-all duration-200 ease-in-out hover:bg-blue-700/10 ${className}`}
         >
             {children}
         </button>
