@@ -30,7 +30,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-      <h1 style={{fontSize: "xxx-large"}}>THIS IS THE BEST</h1>
+      <h1 style={{fontSize: "xxx-large"}}></h1>
         {children}
       </body>
     </html>
