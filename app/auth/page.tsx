@@ -3,6 +3,7 @@ import { useState, FormEvent, ChangeEvent } from 'react';
 import pb from '../lib/pb';
 import { useRouter } from 'next/navigation';
 import PillButton from '../components/PillButton';
+import { ClientResponseError } from 'pocketbase';
 
 const FormInput = ({ label, type, value, onChange }: { label: string, type: string, value: string, onChange: (e: ChangeEvent<HTMLInputElement>) => void }) => (
     <div>
@@ -44,7 +45,15 @@ export default function AuthPage() {
             router.push('/');
         } catch (err: any) {
             console.error(err);
-            setError(err?.message || 'An error occurred. Please try again.');
+
+            if (err instanceof ClientResponseError && err.response?.data) {
+                const firstError = Object.values(err.response.data)[0] as any;
+                if (firstError?.message) {
+                    setError(firstError.message);
+                    return;
+                }
+            }
+            setError(err?.message || 'An error occurred.');
         }
     };
 
