@@ -42,7 +42,8 @@ export default function AuthPage() {
                 await pb.collection('users').create({ email, password, passwordConfirm });
                 await pb.collection('users').authWithPassword(email, password);
             }
-            router.push('/');
+            const record = pb.authStore.model;
+            router.push(!record?.profileSetup ? `/profile/${record?.id}` : '/');
         } catch (err: any) {
             console.error(err);
 
