@@ -14,7 +14,21 @@ export default function Navbar() {
                     <span className="text-2xl font-bold text-blue-700 tracking-tight">
                         Neighborhood Eats
                     </span>
+
+                    <div className="flex items-center text-sm text-gray-600 mt-1">
+                        <span className="mr-1"> NearbyImage</span>
+                        <span> Nearby</span>
+                    </div>
                 </Link>
+
+                <div className="flex-1 flex justify-center">
+                    <div className="w-full max-w-md">
+                        <input
+                            type="text"
+                            placeholder="Search For Food"
+                            className="w-full border rounded-full px-5 py-2 shadow-sm outline-none"/>
+                    </div>
+                </div>
 
                 <Link href="/auth">
                     <PillButton>
