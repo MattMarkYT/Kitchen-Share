@@ -21,6 +21,7 @@ const FormInput = ({ label, type, value, onChange }: { label: string, type: stri
 export default function AuthPage() {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
+    const [displayName, setDisplayName] = useState('');
     const [password, setPassword] = useState('');
     const [passwordConfirm, setPasswordConfirm] = useState('');
     const [error, setError] = useState('');
@@ -39,7 +40,7 @@ export default function AuthPage() {
             if (isLogin) {
                 await pb.collection('users').authWithPassword(email, password);
             } else {
-                await pb.collection('users').create({ email, password, passwordConfirm });
+                await pb.collection('users').create({ email, displayName, password, passwordConfirm });
                 await pb.collection('users').authWithPassword(email, password);
             }
             const record = pb.authStore.model;
@@ -67,6 +68,9 @@ export default function AuthPage() {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <FormInput label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                    {!isLogin && (
+                        <FormInput label="Name" type="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+                    )}
                     <FormInput label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
 
                     {!isLogin && (
