@@ -21,6 +21,7 @@ const FormInput = ({ label, type, value, onChange }: { label: string, type: stri
 export default function AuthPage() {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
+    const [displayName, setDisplayName] = useState('');
     const [password, setPassword] = useState('');
     const [passwordConfirm, setPasswordConfirm] = useState('');
     const [error, setError] = useState('');
@@ -39,7 +40,7 @@ export default function AuthPage() {
             if (isLogin) {
                 await pb.collection('users').authWithPassword(email, password);
             } else {
-                await pb.collection('users').create({ email, password, passwordConfirm });
+                await pb.collection('users').create({ email, displayName, password, passwordConfirm });
                 await pb.collection('users').authWithPassword(email, password);
             }
             const record = pb.authStore.model;
@@ -67,6 +68,9 @@ export default function AuthPage() {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <FormInput label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                    {!isLogin && (
+                        <FormInput label="Name" type="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+                    )}
                     <FormInput label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
 
                     {!isLogin && (
@@ -75,21 +79,27 @@ export default function AuthPage() {
 
                     {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
-                    <PillButton type="submit" className="w-full">
+                    <PillButton type="submit" className="w-full mt-2">
                         {isLogin ? 'Sign In' : 'Sign Up'}
                     </PillButton>
                 </form>
 
-                <p className="mt-4 text-center text-sm text-gray-600">
-                    {isLogin ? "Don't have an account? " : "Already have an account? "}
-                    <button
+                <div className="mt-2 flex flex-col gap-4 pt-2">
+                    <div className="flex items-center gap-3">
+                        <div className="flex-1 h-px bg-gray-200" />
+                        <span className="text-xs text-gray-400 uppercase tracking-wide">or</span>
+                        <div className="flex-1 h-px bg-gray-200" />
+                    </div>
+
+                    <PillButton
                         type="button"
-                        onClick={() => setIsLogin(!isLogin)}
-                        className="text-blue-600 hover:underline font-medium"
+                        onClick={() => { setIsLogin(!isLogin); setError(''); }}
+                        className="w-full"
                     >
-                        {isLogin ? 'Register' : 'Login'}
-                    </button>
-                </p>
+                        {isLogin ? 'Create an account' : 'Log in instead'}
+                    </PillButton>
+                </div>
+                 
             </div>
         </div>
     );

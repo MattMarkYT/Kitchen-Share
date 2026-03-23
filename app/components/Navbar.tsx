@@ -14,11 +14,6 @@ export default function Navbar() {
                     <span className="text-2xl font-bold text-blue-700 tracking-tight">
                         Neighborhood Eats
                     </span>
-
-                    <div className="flex items-center text-sm text-gray-600 mt-1">
-                        <span className="mr-1"> NearbyImage</span>
-                        <span> Nearby</span>
-                    </div>
                 </Link>
 
                 <div className="flex-1 flex justify-center">
