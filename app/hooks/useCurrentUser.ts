@@ -7,8 +7,8 @@ export function useCurrentUser() {
     useEffect(() => {
         setCurrentUserId(pb.authStore.record?.id ?? null);
 
-        const removeListener = pb.authStore.onChange((token, model) => {
-            setCurrentUserId(model?.id ?? null);
+        const removeListener = pb.authStore.onChange((token, record) => {
+            setCurrentUserId(record?.id ?? null);
         });
         return () => removeListener();
     }, []);
