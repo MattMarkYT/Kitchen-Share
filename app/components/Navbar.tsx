@@ -9,6 +9,7 @@ export default function Navbar() {
     const router = useRouter();
     const currentUserId = useCurrentUser();
     const handleLogout = () => {
+        pb.realtime.unsubscribeByPrefix('');
         pb.authStore.clear();
         router.push("/");
         router.refresh();
