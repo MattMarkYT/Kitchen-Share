@@ -21,7 +21,7 @@ async function getListing(id: string): Promise<Listing> {
 }
 
 export default function ItemPage() {
-    // Uncomment this when you're done with
+    // Uncomment the next 2 lines when you're done and you can test your code at localhost:3000/item/123456789012345 
     // const id = useParams().id as string
     // const listing = getListing(id);
 
