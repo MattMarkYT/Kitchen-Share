@@ -38,6 +38,10 @@ export default function Navbar() {
                             <Link href={`/profile/${currentUserId}`}>
                                 <PillButton>Profile</PillButton>
                             </Link>
+                            
+                            <Link href={`/messages`}>
+                                <PillButton>Messages</PillButton>
+                            </Link>
 
                             <PillButton onClick={handleLogout}>
                                 Logout
