@@ -1,5 +1,8 @@
-import React from 'react';
+'use client';
+import React, { useState, useEffect } from 'react';
 import pb from "@/app/lib/pb"
+import { useParams } from 'next/navigation';
+import PillButton from "@/app/components/PillButton"
 
 type Listing = {
     title: string;
@@ -21,19 +24,21 @@ async function getListing(id: string): Promise<Listing> {
 }
 
 export default function ItemPage() {
-    // Uncomment the next 2 lines when you're done and you can test your code at localhost:3000/item/123456789012345 
-    // const id = useParams().id as string
+    // Uncomment the next 2 lines when you're done and you can test your code at localhost:3000/item/123456789012345
+    const id = useParams().id as string
     // const listing = getListing(id);
+    const [listing, setListing] = useState<Listing | null>(null);
 
-    const listing: Listing = {
-        title: 'Cheese Pizza',
-        description: 'A tasty pizza with fresh ingredients and a crispy crust.',
-        sellerName: 'Pizza Guy',
-        sellerImage: '/TEMPLATEsellerlogo.png',
-        price: 12.99,
-        location: 'New York, NY',
-        main_image: '/TEMPLATEpizza.png',
-    };
+    useEffect(() => {
+        const fetchData = async () => {
+            const data = await getListing(id);
+            setListing(data);
+        };
+
+        fetchData();
+    }, [id]);
+
+    if (!listing) return <div>Loading...</div>;
 
     return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', fontFamily: 'Arial, sans-serif', padding: '40px' }}>
@@ -56,20 +61,7 @@ export default function ItemPage() {
                         <p style={{ fontSize: '1.2em', fontWeight: 'bold' }}>Seller: {listing.sellerName}</p>
                     </div>
                     <p style={{ fontWeight: 'bold', fontSize: '1.2em' }}>Price: ${listing.price.toFixed(2)}</p>
-                    {/* Try to use the PillButton Component for better site-wide consistency */}
-                    <button
-                        style={{
-                            padding: '15px 30px',
-                            backgroundColor: '#28a745',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '5px',
-                            cursor: 'pointer',
-                            fontSize: '1.1em',
-                        }}
-                    >
-                        Buy Now
-                    </button>
+                    <PillButton>Buy Now</PillButton>
                 </div>
             </div>
         </div>
