@@ -19,22 +19,8 @@ type Seller = {
     avatar: string;
 };
 
-// Look at the Profile page. There's a folder [id]. You should look into something similar.
-// It will allow you to load listing data using the id in the url
-// Like localhost:3000/item/<id>
-// Finally, Try to use this project's PillButton Component for better site-wide consistency
-
-async function getListing(id: string): Promise<Listing> {
-    return await pb.collection("listings").getOne<Listing>(id);
-}
-async function getSeller(id: string): Promise<Seller> {
-    return await pb.collection("users").getOne<Seller>(id);
-}
-
 export default function ItemPage() {
-    // Uncomment the next 2 lines when you're done and you can test your code at localhost:3000/item/123456789012345
     const id = useParams().id as string
-    // const listing = getListing(id);
     const [listing, setListing] = useState<Listing | null>(null);
     const [seller, setSeller] = useState<Seller | null>(null);
 
@@ -42,7 +28,6 @@ export default function ItemPage() {
         const fetchData = async () => {
             const data = await pb.collection("listings").getOne<Listing>(id);
             setListing(data);
-            console.log("bruh: "+data.seller);
             const data2 = await pb.collection("users").getOne<Seller>(data.seller);
             setSeller(data2);
         };
@@ -59,7 +44,7 @@ export default function ItemPage() {
                 <img
                     src={pb.files.getURL(listing,listing.main_image)}
                     alt={listing.title}
-                    style={{ width: '400px', height: '400px', borderRadius: '10px' }}
+                    style={{ width: '400px', height: '400px', borderRadius: '10px', objectFit:"cover", objectPosition:"center" }}
                 />
                 <div style={{ marginLeft: '30px', border: '1px solid #ccc', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)' }}>
                     <h1 style={{ fontSize: '3em', fontWeight: 'bolder' }}>{listing.title}</h1>
