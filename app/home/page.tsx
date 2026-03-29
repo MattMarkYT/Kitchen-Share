@@ -1,5 +1,8 @@
+'use client';
 import Navbar from "../components/Navbar";
 import styles from "./homepage.module.css";
+import pb from "@/app/lib/pb";
+import React, {useEffect, useState} from "react";
 
 type Listing = {
     id: string;
@@ -13,8 +16,8 @@ type Listing = {
 function ListingCard({ listing }: { listing: Listing }) {
     return (
         <li className={styles.card}>
-            <a href={`/listing/${listing.id}`}>
-                <img src={listing.main_image || "/placeholder.jpg"} />
+            <a href={`/item/${listing.id}`}>
+                <img src={pb.files.getURL(listing, listing.main_image as string, {thumb:"50%x50%"}) || "/placeholder.jpg"} />
                 <div className={styles.cardInfo}>
                     <p className={styles.title}>{listing.title}</p>
                     <p className={styles.price}>${listing.price}</p>
@@ -26,13 +29,18 @@ function ListingCard({ listing }: { listing: Listing }) {
 }
 
 export default function Home() {
-    const listings: Listing[] = [
-        {id: "1", title:"Burger Meal", price:9, location:"Los Angeles, CA", main_image:"/placeholder.jpg", created:""},
-        {id: "2", title:"Chicken Sandwich", price:8, location:"Los Angeles, CA", main_image:"/placeholder.jpg", created:""},
-        {id: "3", title:"Pizza Slice", price:4, location:"Los Angeles, CA", main_image:"/placeholder.jpg", created:""},
-        {id: "4", title:"Pasta Bowl", price:10, location:"Los Angeles, CA", main_image:"/placeholder.jpg", created:""},
-        {id: "5", title:"Hot Dog", price:5, location:"Los Angeles, CA", main_image:"/placeholder.jpg", created:""},
-    ];
+    const [listings, setListings] = useState<Listing[] | null>(null);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            const data = await pb.collection("listings").getFullList<Listing>();
+            setListings(data);
+        };
+
+        fetchData();
+    });
+
+    if (!listings) return <div>Loading...</div>;
 
     return (
         <main className="min-h-screen bg-white font-sans relative overflow-hidden">
