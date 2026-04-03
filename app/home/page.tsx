@@ -16,7 +16,7 @@ type Listing = {
 function ListingCard({ listing }: { listing: Listing }) {
     return (
         <li className={styles.card}>
-            <a href={`/item/${listing.id}`}>
+            <a href={`/listing/${listing.id}`}>
                 <img src={pb.files.getURL(listing, listing.main_image as string, {thumb:"50%x50%"}) || "/placeholder.jpg"} />
                 <div className={styles.cardInfo}>
                     <p className={styles.title}>{listing.title}</p>
