@@ -160,7 +160,7 @@ export default function ConversationPage() {
                         ← Back
                     </PillButton>
 
-                    <div className="relative flex-shrink-0">
+                    <div className="relative shrink-0">
                         <div className="w-9 h-9 rounded-full bg-gray-200 overflow-hidden border border-gray-200 flex items-center justify-center">
                             {otherAvatarUrl ? (
                                 /* eslint-disable-next-line @next/next/no-img-element */
@@ -183,11 +183,11 @@ export default function ConversationPage() {
                                 {otherUser?.displayName || 'Unknown'}
                             </p>
                             {listing ? (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 flex-shrink-0">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 shrink-0">
                                     {listing.title?.length > 18 ? listing.title.slice(0, 18) + '…' : listing.title}
                                 </span>
                             ) : (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-400 flex-shrink-0">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-400 shrink-0">
                                     DM
                                 </span>
                             )}
@@ -242,7 +242,7 @@ export default function ConversationPage() {
                                                     : 'bg-gray-100 text-gray-800 rounded-bl-md'
                                             }`}
                                         >
-                                            <p className="whitespace-pre-wrap break-words">{msg['body']}</p>
+                                            <p className="whitespace-pre-wrap wrap-break-word">{msg['body']}</p>
                                             <p className={`text-[11px] mt-1 ${isMine ? 'text-blue-200' : 'text-gray-400'}`}>
                                                 {formatTime(msg['created'])}
                                                 {isMine && msg.id === lastSentId && (
