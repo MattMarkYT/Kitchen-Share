@@ -3,9 +3,17 @@
 import { useRouter } from "next/navigation";
 import PillButton from "./PillButton";
 import Link from "next/link";
-
+import pb from "../lib/pb";
+import { useCurrentUser } from "../hooks";
 export default function Navbar() {
     const router = useRouter();
+    const currentUserId = useCurrentUser();
+    const handleLogout = () => {
+        pb.realtime.unsubscribeByPrefix('');
+        pb.authStore.clear();
+        router.push("/");
+        router.refresh();
+    };
 
     return (
         <div className="border-b-2 border-foreground shadow-lg">
@@ -25,11 +33,27 @@ export default function Navbar() {
                     </div>
                 </div>
 
-                <Link href="/auth">
-                    <PillButton>
-                        Log in
-                    </PillButton>
-                </Link>
+                <div className="flex items-center gap-3">
+                    {currentUserId ? (
+                        <>
+                            <Link href={`/profile/${currentUserId}`}>
+                                <PillButton>Profile</PillButton>
+                            </Link>
+                            
+                            <Link href={`/messages`}>
+                                <PillButton>Messages</PillButton>
+                            </Link>
+
+                            <PillButton onClick={handleLogout}>
+                                Logout
+                            </PillButton>
+                        </>
+                    ) : (
+                        <Link href="/auth">
+                            <PillButton>Log in</PillButton>
+                        </Link>
+                    )}
+                </div>
             </nav>
         </div>
     );
