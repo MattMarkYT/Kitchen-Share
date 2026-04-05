@@ -4,7 +4,7 @@ import styles from "./homepage.module.css";
 import pb from "@/app/lib/pb";
 import React, {useEffect, useState} from "react";
 
-type Listing = {
+export type Listing = {
     id: string;
     title: string;
     price: number;
@@ -21,7 +21,7 @@ function ListingCard({ listing }: { listing: Listing }) {
                 <div className={styles.cardInfo}>
                     <p className={styles.title}>{listing.title}</p>
                     <p className={styles.price}>${listing.price}</p>
-                    <p className={styles.location}>{listing.location}</p>
+                    <p className={styles.location}>{listing.location ? listing.location : "Unknown"}</p>
                 </div>
             </a>
         </li>

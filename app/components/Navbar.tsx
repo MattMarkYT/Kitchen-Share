@@ -5,6 +5,7 @@ import PillButton from "./PillButton";
 import Link from "next/link";
 import pb from "../lib/pb";
 import { useCurrentUser } from "../hooks";
+import Form from "next/form";
 export default function Navbar() {
     const router = useRouter();
     const currentUserId = useCurrentUser();
@@ -26,10 +27,13 @@ export default function Navbar() {
 
                 <div className="flex-1 flex justify-center">
                     <div className="w-full max-w-md">
-                        <input
-                            type="text"
-                            placeholder="Search For Food"
-                            className="w-full border rounded-full px-5 py-2 shadow-sm outline-none"/>
+                        <Form action="/search">
+                            <input
+                                name="query"
+                                type="text"
+                                placeholder="Search For Food"
+                                className="w-full border rounded-full px-5 py-2 shadow-sm outline-none"/>
+                        </Form>
                     </div>
                 </div>
 
