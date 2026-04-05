@@ -42,11 +42,12 @@ export default function ItemPage() {
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', fontFamily: 'Arial, sans-serif', padding: '40px' }}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
                 <img
-                    src={pb.files.getURL(listing,listing.main_image)}
+                    src={pb.files.getURL(listing,listing.main_image, { thumb: '512x512' }) ||
+                        '/placeholder.jpg'}
                     alt={listing.title}
                     style={{ width: '400px', height: '400px', borderRadius: '10px', objectFit:"cover", objectPosition:"center" }}
                 />
-                <div style={{ marginLeft: '30px', border: '1px solid #ccc', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)' }}>
+                <div style={{ minWidth: '400px', marginLeft: '30px', border: '1px solid #ccc', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)' }}>
                     <h1 style={{ fontSize: '3em', fontWeight: 'bolder' }}>{listing.title}</h1>
                     <p style={{ fontSize: '1.2em' }}>{listing.description}</p>
                     <p style={{ fontSize: '1.2em' }}><strong>Location: </strong>{listing.location}</p>
