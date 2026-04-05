@@ -160,6 +160,10 @@ export default function ConversationPage() {
                         ← Back
                     </PillButton>
 
+                    <button
+                        onClick={() => otherUser?.id && router.push(`/profile/${otherUser.id}`)}
+                        className="flex items-center gap-3 min-w-0 flex-1 text-left cursor-pointer"
+                    >
                     <div className="relative shrink-0">
                         <div className="w-9 h-9 rounded-full bg-gray-200 overflow-hidden border border-gray-200 flex items-center justify-center">
                             {otherAvatarUrl ? (
@@ -196,6 +200,7 @@ export default function ConversationPage() {
                             <p className="text-xs text-gray-400">${listing.price.toFixed(2)}</p>
                         )}
                     </div>
+                    </button>
                 </div>
 
                 {/* messages */}
