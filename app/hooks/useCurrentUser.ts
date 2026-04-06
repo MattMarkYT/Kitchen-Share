@@ -14,6 +14,20 @@ function getServerSnapshot(): null {
     return null;
 }
 
+/**
+ * Hook that returns the current authenticated user's ID, or null if not logged in.
+ *
+ * On mount, it refreshes the auth token to verify it is still valid.
+ * If the token has expired or is invalid, the auth store is cleared,
+ * which will trigger a re-render and return null.
+ *
+ * @returns The PocketBase user ID string if authenticated, otherwise null.
+ *
+ * @example
+ * const currentUserId = useCurrentUser();
+ * if (!currentUserId) redirect('/auth');
+ */
+
 export function useCurrentUser() {
     const currentUserId = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
