@@ -1,6 +1,8 @@
 'use client';
 import { useState, useRef } from "react";
 import styles from "./create.module.css";
+import pb from "@/app/lib/pb";
+import { useRouter } from "next/navigation";
 
 const CATEGORIES = ["Meals", "Baked Goods", "Snacks", "Drinks", "Desserts", "Other"];
 
@@ -16,9 +18,13 @@ const SUBCATEGORIES: Record<string, string[]> = {
 const ALLERGY_OPTIONS = ["Gluten", "Dairy", "Nuts", "Eggs", "Soy", "Shellfish", "Fish", "Wheat"];
 
 export default function CreateListing() {
+    const router = useRouter();
+
     const [preview, setPreview] = useState<string | null>(null);
+    const [mainImage, setMainImage] = useState<File | null>(null);
     const [price, setPrice] = useState("");
     const [title, setTitle] = useState("");
+    const [location, setLocation] = useState("");
     const [category, setCategory] = useState("");
     const [subcat, setSubcat] = useState("");
     const [ingredients, setIngredients] = useState("");
@@ -29,11 +35,15 @@ export default function CreateListing() {
 
     function handleImage(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
-        if (file) setPreview(URL.createObjectURL(file));
+        if (file) {
+            setMainImage(file);
+            setPreview(URL.createObjectURL(file));
+        }
     }
 
     function handleRemovePhoto() {
         setPreview(null);
+        setMainImage(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
     }
 
@@ -48,9 +58,27 @@ export default function CreateListing() {
         );
     }
 
-    function handleSubmit() {
-        // TODO: wire up to PocketBase
-        alert("Submit coming soon!");
+    async function handleSubmit() {
+        try {
+            const data = new FormData();
+            data.append("title", title);
+            data.append("price", price);
+            data.append("location", location);
+            data.append("description", description);
+            data.append("category", category);
+            data.append("subcategory", subcat);
+            data.append("ingredients", ingredients);
+            data.append("allergies", allergies.join(", "));
+            data.append("seller", pb.authStore.record?.id ?? "");
+
+            if (mainImage) data.append("main_image", mainImage);
+
+            await pb.collection("listings").create(data);
+            router.push("/");
+        } catch (err) {
+            console.error(err);
+            alert("Something went wrong");
+        }
     }
 
     return (
@@ -110,6 +138,18 @@ export default function CreateListing() {
                         placeholder="e.g. Homemade lasagna"
                         value={title}
                         onChange={e => setTitle(e.target.value)}
+                    />
+                </div>
+
+                {/* Location */}
+                <div className={styles.fieldWrap}>
+                    <label className={styles.label}>Location</label>
+                    <input
+                        className={styles.input}
+                        type="text"
+                        placeholder="e.g. Downtown, LA"
+                        value={location}
+                        onChange={e => setLocation(e.target.value)}
                     />
                 </div>
 
