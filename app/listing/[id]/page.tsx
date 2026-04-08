@@ -1,8 +1,9 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import pb from "@/app/lib/pb"
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import PillButton from "@/app/components/PillButton"
+import {useStartConversation} from "../../hooks";
 
 type Listing = {
     title: string;
@@ -19,12 +20,16 @@ type Seller = {
     avatar: string;
     rating: number;
     created: string;
+    id: string;
 };
 
 export default function ItemPage() {
     const id = useParams().id as string
+    const router = useRouter();
     const [listing, setListing] = useState<Listing | null>(null);
     const [seller, setSeller] = useState<Seller | null>(null);
+    const { startConversation: handleMessage, loading: messagingLoading, error: messagingError } = useStartConversation(seller?.id || '');
+
 
     const renderStars = (rating: number) => {
         const stars = [];
@@ -64,9 +69,9 @@ export default function ItemPage() {
                 <h1 className="text-6xl font-black mb-4">{listing.title}</h1>
                 <p className="text-2xl mb-4"><strong>Location: </strong>{listing.location}</p>
                 <p className="font-bold text-4xl mb-4">${listing.price.toFixed(2)}</p>
-                <div className="flex items-center mt-2.5 mb-4">
+                <div className="flex items-center mt-2.5 mb-4 cursor-pointer" onClick={() => router.push(`/profile/${seller.id}`)}>
                     <div className="w-24 h-24 mr-2.5">
-                        <img className="w-full h-full object-cover object-center rounded-full"
+                        <img className="w-full h-full object-cover object-center rounded-full hover:opacity-80 transition-opacity"
                             src={pb.files.getURL(seller,seller.avatar, {thumb:"80x80"})}
                             alt="Seller Profile Picture"
                         />
@@ -80,7 +85,10 @@ export default function ItemPage() {
                     </div>
                 </div>
                 <div className="mt-5">
-                    <PillButton>Buy Now</PillButton>
+                    {/*<PillButton>Buy Now</PillButton>*/}
+                    <PillButton type="button" onClick={() => handleMessage(id)} disabled={messagingLoading} className="w-full">
+                        {messagingLoading ? 'Opening...' : 'Buy Now'}
+                    </PillButton>
                 </div>
                 <p className="font-bold text-2xl mt-5">Description:</p>
                 <p className="text-2xl">{listing.description}</p>
