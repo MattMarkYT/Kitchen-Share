@@ -30,7 +30,6 @@ export default function RootLayout({
     </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
       <Navbar />
-      <h1 style={{fontSize: "xxx-large"}}></h1>
         {children}
       </body>
     </html>
