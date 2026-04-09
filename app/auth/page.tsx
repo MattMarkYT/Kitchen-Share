@@ -1,7 +1,7 @@
 'use client';
 import { useState, FormEvent, ChangeEvent } from 'react';
 import pb from '../lib/pb';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import PillButton from '../components/PillButton';
 import { ClientResponseError } from 'pocketbase';
 
@@ -19,7 +19,8 @@ const FormInput = ({ label, type, value, onChange }: { label: string, type: stri
 );
 
 export default function AuthPage() {
-    const [isLogin, setIsLogin] = useState(true);
+    const searchParams = useSearchParams();
+    const [isLogin, setIsLogin] = useState(searchParams.get('register') !== 'true');
     const [email, setEmail] = useState('');
     const [displayName, setDisplayName] = useState('');
     const [password, setPassword] = useState('');
