@@ -1,13 +1,28 @@
-import {Listing} from "@/app/home/page";
+"use client";
+
+import {Listing} from "@/app/types/listing";
 import pb from "@/app/lib/pb";
 import Link from "next/link";
-import {MapPin} from "lucide-react";
-import React from "react";
+import {MapPin, Share2, Star} from "lucide-react";
+import React, {useState} from "react";
 
 export function ListingCard({ listing }: { listing: Listing }) {
+    const [copied, setCopied] = useState(false);
     const imgUrl =
         pb.files.getURL(listing, listing.main_image as string, { thumb: "640x480" }) ||
         "/placeholder.jpg";
+    const rating = listing.expand?.seller?.rating;
+
+    const copyListingLink = async () => {
+        const url = `${window.location.origin}/listing/${listing.id}`;
+        try {
+            await navigator.clipboard.writeText(url);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 2000);
+        } catch (error) {
+            console.error("Failed to copy listing link", error);
+        }
+    };
 
     return (
         <li className="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
@@ -18,10 +33,13 @@ export function ListingCard({ listing }: { listing: Listing }) {
                         alt={listing.title}
                         className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
                     />
+                    <div className="absolute bottom-3 right-3 rounded-full bg-white/60 px-3 py-1 text-sm font-semibold text-stone-900 shadow-sm backdrop-blur-sm">
+                        ${listing.price.toLocaleString()}
+                    </div>
                 </div>
 
                 <div className="space-y-3 p-5">
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col gap-4">
                         <div>
                             <h3 className="line-clamp-1 text-lg font-semibold text-stone-900">
                                 {listing.title || "Unknown"}
@@ -33,10 +51,27 @@ export function ListingCard({ listing }: { listing: Listing }) {
                                 </span>
                             </div>
                         </div>
-
-                        <div className="shrink-0 rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700">
-                            ${listing.price.toLocaleString()}
-                        </div>
+                        {rating !== null && rating !== undefined && (
+                            <div className="mt-2 flex items-center justify-between gap-3 text-sm text-stone-500">
+                                <div className="inline-flex items-center gap-1">
+                                    <Star className="h-4 w-4 text-amber-500" />
+                                    <span>{rating.toFixed(1)}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={(event) => {
+                                            event.preventDefault();
+                                            event.stopPropagation();
+                                            copyListingLink();
+                                        }}
+                                        className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-700 transition hover:bg-stone-50"
+                                    >
+                                        <Share2 className="h-3 w-3" />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </Link>

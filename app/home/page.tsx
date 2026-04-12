@@ -3,30 +3,8 @@ import Navbar from "../components/Navbar";
 import styles from "./homepage.module.css";
 import pb from "@/app/lib/pb";
 import React, {useEffect, useState} from "react";
-
-export type Listing = {
-    id: string;
-    title: string;
-    price: number;
-    location?: string;
-    main_image?: string;
-    created: string;
-};
-
-function ListingCard({ listing }: { listing: Listing }) {
-    return (
-        <li className={styles.card}>
-            <a href={`/listing/${listing.id}`}>
-                <img src={pb.files.getURL(listing, listing.main_image as string, {thumb:"256x256"}) || "/placeholder.jpg"} />
-                <div className={styles.cardInfo}>
-                    <p className={styles.title}>{listing.title}</p>
-                    <p className={styles.price}>${listing.price}</p>
-                    <p className={styles.location}>{listing.location ? listing.location : "Unknown"}</p>
-                </div>
-            </a>
-        </li>
-    );
-}
+import {ListingCard} from "../components/ListingCard";
+import {Listing} from "@/app/types/listing";
 
 export default function Home() {
     const [listings, setListings] = useState<Listing[] | null>(null);
@@ -38,7 +16,7 @@ export default function Home() {
 
         const fetchData = async () => {
             try {
-                const data = await pb.collection("listings").getFullList<Listing>();
+                const data = await pb.collection("listings").getFullList<Listing>({ expand: "seller" });
                 if (!cancelled) setListings(data);
             } catch (err) {
                 if (!cancelled) setError(err as Error);
@@ -57,13 +35,18 @@ export default function Home() {
 
     return (
         <main className="min-h-screen bg-white font-sans relative overflow-hidden">
-            <div className={styles.flexContainer}>
-                <ul className={styles.gridLayout}>
-                    {listings.map((listing) => (
-                        <ListingCard key={listing.id} listing={listing} />
-                    ))}
+            <div className="mx-auto max-w-7xl px-6 py-10 sm:px-8 lg:px-10">
+                <h1 className="mb-8 text-4xl font-bold tracking-tight text-stone-900 sm:text-5xl">
+                    Food Near You
+                </h1>
+                <div className={styles.flexContainer}>
+                    <ul className={styles.gridLayout}>
+                        {listings.map((listing) => (
+                            <ListingCard key={listing.id} listing={listing} />
+                        ))}
 
-                </ul>
+                    </ul>
+                </div>
             </div>
         </main>
     );

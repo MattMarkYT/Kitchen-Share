@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import pb from "../lib/pb";
 import Link from "next/link";
 import { MapPin, Search, Loader2 } from "lucide-react";
-import { Listing } from "@/app/home/page";
+import { Listing } from "@/app/types/listing";
 import {ListingCard} from "@/app/components/ListingCard";
 
 export type Result = {
@@ -39,6 +39,7 @@ export default function SearchPage({
                 if (queryWords.length === 0) {
                     const allListings = await pb.collection("listings").getList<Listing>(1, 15, {
                         sort: "-created",
+                        expand: "seller",
                     });
                     data = allListings.items;
                 } else {
@@ -54,6 +55,7 @@ export default function SearchPage({
 
                     const dataBeforeFilter = await pb.collection("listings").getList<Listing>(1, 15, {
                         filter: pb.filter(filterStr, params),
+                        expand: "seller",
                     });
 
                     const filterResults: Result[] = [];
