@@ -4,7 +4,7 @@ import Form from "next/form";
 import { useEffect, useMemo, useRef, useState } from "react";
 import throttle from "lodash.throttle";
 import pb from "@/app/lib/pb";
-import { Listing } from "@/app/home/page";
+import { Listing } from "@/app/types/listing";
 import { Result } from "@/app/search/page";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
