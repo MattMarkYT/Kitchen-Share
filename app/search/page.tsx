@@ -116,7 +116,7 @@ export default function SearchPage({
                         Something went wrong
                     </h2>
                     <p className="mt-3 text-sm text-stone-600">
-                        We couldn&apos;t load the search results right now.
+                        {"We couldn't load the search results right now."}
                     </p>
                 </div>
             </main>
@@ -163,8 +163,10 @@ export default function SearchPage({
                             No results found
                         </h2>
                         <p className="mt-3 text-stone-600">
-                            We couldn&apos;t find anything for <span className="font-medium text-stone-900">“{query}”</span>.
-                            Try a restaurant name, dish, or neighborhood instead.
+                            {"We couldn't find anything for "}<span className="font-medium text-stone-900">“{query}”</span>.
+                        </p>
+                        <p className="mt-3 text-stone-600">
+                            Try another dish, neighbor, or city name.
                         </p>
                     </div>
                 )}
