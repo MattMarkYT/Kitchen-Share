@@ -7,6 +7,7 @@ import pb from "../lib/pb";
 import { useCurrentUser } from "../hooks";
 import SearchBar from "@/app/components/SearchBar";
 import { ChevronDown, User, LogOut } from "lucide-react";
+import PillButton from "@/app/components/PillButton";
 
 type UserRecord = {
     id: string;
@@ -24,7 +25,7 @@ export default function Navbar() {
     const menuRef = useRef<HTMLDivElement>(null);
 
     const handleLogout = () => {
-        pb.realtime.unsubscribeByPrefix("");
+        pb.realtime.unsubscribeByPrefix('');
         pb.authStore.clear();
         setMenuOpen(false);
         router.push("/");
@@ -103,82 +104,88 @@ export default function Navbar() {
 
                 <div className="ml-auto flex items-center gap-2 md:gap-3">
                     {currentUserId ? (
-                        <div className="relative" ref={menuRef}>
-                            <button
-                                type="button"
-                                onClick={() => setMenuOpen((prev) => !prev)}
-                                className="flex items-center gap-3 rounded-full border border-stone-300 bg-white px-2 py-2 pr-3 text-sm font-medium text-stone-800 shadow-sm transition-all hover:border-stone-400 hover:bg-stone-50"
-                            >
-                                <div className="h-9 w-9 overflow-hidden rounded-full border border-stone-200 bg-stone-100">
-                                    {avatarUrl ? (
-                                        <img
-                                            src={avatarUrl}
-                                            alt={user?.displayName || "User avatar"}
-                                            className="h-full w-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="flex h-full w-full items-center justify-center text-stone-500">
-                                            <User className="h-4 w-4" />
-                                        </div>
-                                    )}
-                                </div>
-
-                                <span className="hidden max-w-[140px] truncate sm:block">
-                                    {user?.displayName || "My Account"}
-                                </span>
-
-                                <ChevronDown className="h-4 w-4 text-stone-500" />
-                            </button>
-
-                            {menuOpen && (
-                                <div className="absolute right-0 mt-3 w-56 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl">
-                                    <div className="border-b border-stone-100 px-4 py-3">
-                                        <p className="truncate text-sm font-semibold text-stone-900">
-                                            {user?.displayName || "My Account"}
-                                        </p>
-                                        {user?.email && (
-                                            <p className="truncate text-xs text-stone-500">
-                                                {user.email}
-                                            </p>
+                        <>
+                            <Link href={`/createlisting`}>
+                                <PillButton>Create</PillButton>
+                            </Link>
+                            <Link href={`/messages`}>
+                                <PillButton>Messages</PillButton>
+                            </Link>
+                            <div className="relative" ref={menuRef}>
+                                <button
+                                    type="button"
+                                    onClick={() => setMenuOpen((prev) => !prev)}
+                                    className="flex items-center gap-3 rounded-full border border-stone-300 bg-white px-2 py-2 pr-3 text-sm font-medium text-stone-800 shadow-sm transition-all hover:border-stone-400 hover:bg-stone-50"
+                                >
+                                    <div className="h-9 w-9 overflow-hidden rounded-full border border-stone-200 bg-stone-100">
+                                        {avatarUrl ? (
+                                            <img
+                                                src={avatarUrl}
+                                                alt={user?.displayName || "User avatar"}
+                                                className="h-full w-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="flex h-full w-full items-center justify-center text-stone-500">
+                                                <User className="h-4 w-4" />
+                                            </div>
                                         )}
                                     </div>
 
-                                    <div className="p-2">
-                                        <Link
-                                            href={`/profile/${currentUserId}`}
-                                            onClick={() => setMenuOpen(false)}
-                                            className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-900"
-                                        >
-                                            <User className="h-4 w-4" />
-                                            <span>Profile</span>
-                                        </Link>
+                                    <span className="hidden max-w-[140px] truncate sm:block">
+                                        {user?.displayName || "My Account"}
+                                    </span>
 
-                                        <button
-                                            type="button"
-                                            onClick={handleLogout}
-                                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-900"
-                                        >
-                                            <LogOut className="h-4 w-4" />
-                                            <span>Logout</span>
-                                        </button>
+                                    <ChevronDown className="h-4 w-4 text-stone-500" />
+                                </button>
+
+                                {menuOpen && (
+                                    <div className="absolute right-0 mt-3 w-56 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl">
+                                        <div className="border-b border-stone-100 px-4 py-3">
+                                            <p className="truncate text-sm font-semibold text-stone-900">
+                                                {user?.displayName || "My Account"}
+                                            </p>
+                                            {user?.email && (
+                                                <p className="truncate text-xs text-stone-500">
+                                                    {user.email}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="p-2">
+                                            <Link
+                                                href={`/profile/${currentUserId}`}
+                                                onClick={() => setMenuOpen(false)}
+                                                className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-900"
+                                            >
+                                                <User className="h-4 w-4" />
+                                                <span>Profile</span>
+                                            </Link>
+
+                                            <button
+                                                type="button"
+                                                onClick={handleLogout}
+                                                className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-900"
+                                            >
+                                                <LogOut className="h-4 w-4" />
+                                                <span>Logout</span>
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
-                        </div>
+                                )}
+                            </div>
+                        </>
                     ) : (
                         <>
-                            <Link
-                                href="/auth"
-                                className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 transition-all hover:border-stone-400 hover:bg-stone-50"
-                            >
-                                Log in
+                            <Link href="/auth">
+                                <PillButton>
+                                    Log in
+                                </PillButton>
                             </Link>
 
-                            <Link
-                                href="/auth?register=true"
-                                className="hidden rounded-full bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-amber-700 sm:inline-flex"
-                            >
-                                Join the community
+                            <Link href="/auth?register=true">
+                                <PillButton>
+                                    Join the community
+                                </PillButton>
                             </Link>
                         </>
                     )}
