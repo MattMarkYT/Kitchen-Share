@@ -23,9 +23,14 @@ function getServerSnapshot(): null {
  *
  * @returns The PocketBase user ID string if authenticated, otherwise null.
  *
- * @example
+ * @example to check if user is logged in and redirect to auth page if not:
  * const currentUserId = useCurrentUser();
- * if (!currentUserId) redirect('/auth');
+ *     useEffect(() => {
+ *       if (!pb.authStore.isValid) {
+ *          router.push("/auth");
+ *       }
+ *     }, [currentUserId, router]);  <--- currentUserId is used as a dependency to trigger the effect when auth state changes when a user is on the page this is called from.
+ * 
  */
 
 export function useCurrentUser() {
