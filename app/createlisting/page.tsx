@@ -3,24 +3,16 @@ import { useState, useRef, useEffect } from "react";
 import styles from "./create.module.css";
 import pb from "@/app/lib/pb";
 import { useRouter } from "next/navigation";
-
-const CATEGORIES = ["Meals", "Baked Goods", "Snacks", "Drinks", "Desserts", "Other"];
-
-const SUBCATEGORIES: Record<string, string[]> = {
-    Meals: ["Breakfast", "Lunch", "Dinner", "Soup", "Salad"],
-    "Baked Goods": ["Bread", "Muffins", "Cookies", "Cakes"],
-    Snacks: ["Chips", "Nuts", "Fruit", "Dips"],
-    Drinks: ["Smoothies", "Juices", "Tea", "Coffee"],
-    Desserts: ["Ice Cream", "Pudding", "Pastry"],
-    Other: ["Other"],
-};
+import {useCurrentUser} from "@/app/hooks";
+import PillButton from "@/app/components/PillButton";
+import InputField from "@/app/components/InputField";
 
 const ALLERGY_OPTIONS = ["Gluten", "Dairy", "Nuts", "Eggs", "Soy", "Shellfish", "Fish", "Wheat"];
 
 type Errors = {
     title?: string;
     price?: string;
-    category?: string;
+    location?: string;
     images?: string;
 };
 
@@ -32,9 +24,7 @@ export default function CreateListing() {
     const [price, setPrice] = useState("");
     const [title, setTitle] = useState("");
     const [location, setLocation] = useState("");
-    const [category, setCategory] = useState("");
-    const [subcat, setSubcat] = useState("");
-    const [ingredients, setIngredients] = useState("");
+    const [tags, setTags] = useState("");
     const [description, setDescription] = useState("");
     const [allergies, setAllergies] = useState<string[]>([]);
     const [errors, setErrors] = useState<Errors>({});
@@ -43,11 +33,20 @@ export default function CreateListing() {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Checks if not logged in, and redirects
+    const currentUserId = useCurrentUser();
     useEffect(() => {
         if (!pb.authStore.isValid) {
             router.push("/auth");
         }
-    }, [router]);
+    }, [currentUserId, router]);
+
+
+    // We don't want the user to see the create listing page if they aren't logged in
+    if (!currentUserId) {
+        return  <div className="min-h-screen flex items-center justify-center bg-gray-100">
+                    <p className="text-gray-500">Loading...</p>
+                </div>
+    }
 
     function handleImages(e: React.ChangeEvent<HTMLInputElement>) {
         const files = Array.from(e.target.files ?? []);
@@ -62,12 +61,6 @@ export default function CreateListing() {
         setPreviews(prev => prev.filter((_, i) => i !== index));
     }
 
-    function handleCategoryChange(e: React.ChangeEvent<HTMLSelectElement>) {
-        setCategory(e.target.value);
-        setSubcat("");
-        setErrors(prev => ({ ...prev, category: undefined }));
-    }
-
     function toggleAllergy(tag: string) {
         setAllergies(prev =>
             prev.includes(tag) ? prev.filter(a => a !== tag) : [...prev, tag]
@@ -76,10 +69,10 @@ export default function CreateListing() {
 
     function validate(): boolean {
         const newErrors: Errors = {};
-        if (!title.trim()) newErrors.title = "Title is required.";
-        if (!price || isNaN(Number(price)) || Number(price) < 0) newErrors.price = "A valid price is required.";
-        if (!category) newErrors.category = "Please select a category.";
-        if (images.length === 0) newErrors.images = "Please upload at least one photo.";
+        if (!title.trim()) newErrors.title = "Title is required";
+        if (!price || isNaN(Number(price)) || Number(price) < 0) newErrors.price = "Valid price is required";
+        if (!location.trim()) newErrors.location = "Location is required";
+        if (images.length === 0) newErrors.images = "Please upload at least one photo";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     }
@@ -94,10 +87,7 @@ export default function CreateListing() {
             data.append("price", price);
             data.append("location", location.trim());
             data.append("description", description.trim());
-            data.append("category", category);
-            data.append("subcategory", subcat);
-            data.append("ingredients", ingredients.trim());
-            data.append("allergies", allergies.join(", "));
+            data.append("allergies", !allergies.length ? "None" : allergies.join(", "));
             data.append("seller", pb.authStore.record?.id ?? "");
 
             // First image → main_image, rest → images
@@ -110,7 +100,10 @@ export default function CreateListing() {
             router.push("/");
         } catch (err) {
             console.error(err);
-            alert("Something went wrong. Please try again.");
+            if (err == "ClientResponseError 400: Failed to create record."){
+                alert("Your input is invalid and wasn't accepted by our server.");
+            }
+            else alert("An unexpected error occurred: \n" + err);
         } finally {
             setSubmitting(false);
         }
@@ -118,12 +111,12 @@ export default function CreateListing() {
 
     return (
         <main>
-            <div className={styles.container}>
+            <div className="min-w-lg max-w-1/3 mx-auto mt-10">
                 <h1 className={styles.heading}>Create a listing</h1>
 
                 {/* Photo upload */}
-                <div className={styles.fieldWrap}>
-                    <label className={styles.label}>Photos</label>
+                <div className="flex flex-col gap-1 pb-4">
+                    <label className="text-base font-medium text-gray-900">Photos</label>
                     <input
                         ref={fileInputRef}
                         type="file"
@@ -154,107 +147,47 @@ export default function CreateListing() {
                             </div>
                         </div>
                     </div>
-                    {errors.images && <p className={styles.errorText}>{errors.images}</p>}
+                    {errors.images && <p className="text-sm text-red-600">{errors.images}</p>}
                 </div>
 
                 {/* Price */}
-                <div className={styles.fieldWrap}>
-                    <label className={styles.label}>Price ($)</label>
-                    <input
-                        className={`${styles.input} ${errors.price ? styles.inputError : ""}`}
+                <InputField label="Price ($)" fieldType="textS" error={errors.price}
                         type="number"
                         min="0"
                         step="0.01"
                         placeholder="0.00"
-                        value={price}
-                        onChange={e => { setPrice(e.target.value); setErrors(prev => ({ ...prev, price: undefined })); }}
-                    />
-                    {errors.price && <p className={styles.errorText}>{errors.price}</p>}
-                </div>
+                        onChange={e => { setPrice(e.target.value); setErrors(prev => ({ ...prev, price: undefined })); }}/>
 
                 {/* Title */}
-                <div className={styles.fieldWrap}>
-                    <label className={styles.label}>Title</label>
-                    <input
-                        className={`${styles.input} ${errors.title ? styles.inputError : ""}`}
+                <InputField label="Title" fieldType="textS" error={errors.title}
                         type="text"
                         placeholder="e.g. Homemade lasagna"
-                        value={title}
-                        onChange={e => { setTitle(e.target.value); setErrors(prev => ({ ...prev, title: undefined })); }}
-                    />
-                    {errors.title && <p className={styles.errorText}>{errors.title}</p>}
-                </div>
+                        onChange={e => { setTitle(e.target.value); setErrors(prev => ({ ...prev, title: undefined })); }}/>
 
                 {/* Location */}
-                <div className={styles.fieldWrap}>
-                    <label className={styles.label}>Location <span className={styles.optional}>(optional)</span></label>
-                    <input
-                        className={styles.input}
+                <InputField label="Location" fieldType="textS" error={errors.location}
                         type="text"
-                        placeholder="e.g. Downtown, LA"
-                        value={location}
-                        onChange={e => setLocation(e.target.value)}
-                    />
-                </div>
+                        placeholder="e.g. Downtown LA"
+                        onChange={e => setLocation(e.target.value)}/>
 
-                {/* Category */}
-                <div className={styles.fieldWrap}>
-                    <label className={styles.label}>Category</label>
-                    <select
-                        className={`${styles.input} ${errors.category ? styles.inputError : ""}`}
-                        value={category}
-                        onChange={handleCategoryChange}
-                    >
-                        <option value="">Select a category</option>
-                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                    {errors.category && <p className={styles.errorText}>{errors.category}</p>}
-                </div>
+                <InputField label="Description" fieldType="textL" optional={true}
+                            placeholder="Tell buyers about your food..."
+                            onChange={e => setDescription(e.target.value)}
+                            rows={4}
+                />
 
-                {/* Subcategory */}
-                <div className={styles.fieldWrap}>
-                    <label className={styles.label}>
-                        Subcategory <span className={styles.optional}>(optional)</span>
-                    </label>
-                    <select
-                        className={styles.input}
-                        value={subcat}
-                        onChange={e => setSubcat(e.target.value)}
-                        disabled={!category}
-                    >
-                        <option value="">{category ? "Select subcategory" : "Pick a category first"}</option>
-                        {category && SUBCATEGORIES[category]?.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                </div>
-
-                {/* Ingredients */}
-                <div className={styles.fieldWrap}>
-                    <label className={styles.label}>Ingredients <span className={styles.optional}>(optional)</span></label>
-                    <textarea
-                        className={`${styles.input} ${styles.textarea}`}
-                        placeholder="e.g. flour, eggs, butter, sugar..."
-                        value={ingredients}
-                        onChange={e => setIngredients(e.target.value)}
-                        rows={3}
-                    />
-                </div>
-
-                {/* Description */}
-                <div className={styles.fieldWrap}>
-                    <label className={styles.label}>Description <span className={styles.optional}>(optional)</span></label>
-                    <textarea
-                        className={`${styles.input} ${styles.textarea}`}
-                        placeholder="Tell buyers about your food..."
-                        value={description}
-                        onChange={e => setDescription(e.target.value)}
-                        rows={4}
-                    />
-                </div>
+                <InputField label="Tags" fieldType="textL" optional={true}
+                            placeholder="Add some tags to help buyers find your food... (separate with commas)"
+                            onChange={e => setTags(e.target.value)}
+                            rows={2}
+                />
 
                 {/* Allergy tags */}
-                <div className={styles.fieldWrap}>
-                    <label className={styles.label}>Allergy tags <span className={styles.optional}>(optional)</span></label>
-                    <div className={styles.allergyGrid}>
+                <div className="mb-5">
+                    <label className="text-base font-medium text-gray-900">
+                        Allergy tags <span className="text-slate-400">(optional)</span>
+                    </label>
+                    <div className={`flex flex-wrap gap-2`}>
                         {ALLERGY_OPTIONS.map(tag => (
                             <button
                                 key={tag}
@@ -269,13 +202,13 @@ export default function CreateListing() {
                 </div>
 
                 {/* Submit */}
-                <button
-                    className={styles.submitBtn}
+                <PillButton
+                    className="w-full top-4 p-3.5"
                     onClick={handleSubmit}
                     disabled={submitting}
                 >
                     {submitting ? "Posting..." : "Post listing"}
-                </button>
+                </PillButton>
             </div>
         </main>
     );
