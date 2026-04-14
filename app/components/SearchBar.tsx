@@ -7,7 +7,10 @@ import pb from "@/app/lib/pb";
 import { Listing } from "@/app/types/listing";
 import { Result } from "@/app/search/page";
 import { useRouter } from "next/navigation";
-import { Search } from "lucide-react";
+import { Search, UserRoundSearch, MapPinSearch } from "lucide-react";
+import {useSearch} from "@/app/hooks/useSearch";
+import Link from "next/link";
+import {sortListings} from "@/app/api/search";
 
 export default function SearchBar() {
     const [query, setQuery] = useState("");
@@ -19,71 +22,43 @@ export default function SearchBar() {
     const inputRef = useRef<HTMLInputElement>(null);
 
     const throttledSetQuery = useMemo(
-        () => throttle((q: string) => setQuery(q), 400),
+        () => throttle((q: string) => {setQuery(q);}, 750),
         []
     );
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setLiveInput(value);
-        throttledSetQuery(value);
+        if (value.trim().length === 0) {
+            setQuery("");
+            throttledSetQuery.cancel();
+        }
+        else throttledSetQuery(value);
     };
 
     const selectSuggestion = (item: string) => {
         setLiveInput(item);
         setQuery(item);
-        setSuggestions([]);
         router.push(`/search?query=${encodeURIComponent(item)}`);
     };
 
+    const {listings, users, neighborhoods, loading, error} = useSearch(query, 1, true, false, true);
+
+    // Used to live update the search results as the user types
     useEffect(() => {
-        const fetchData = async () => {
-            if (query.split(" ").filter(Boolean).length === 0) {
-                setSuggestions([]);
-                return;
-            }
 
-            let filterStr = "";
-            const params: Record<string, string> = {};
-            const queryWords = query.split(" ").filter(Boolean);
-
-            queryWords.forEach((word, i) => {
-                const key = `search${i}`;
-                filterStr += `title ~ {:${key}}`;
-                if (i < queryWords.length - 1) filterStr += " || ";
-                params[key] = word;
-            });
-
-            const dataBeforeFilter = await pb.collection("listings").getList<Listing>(1, 15, {
-                filter: pb.filter(filterStr, params),
-            });
-
-            const filterResults: Result[] = [];
-            for (const listing of dataBeforeFilter.items) {
-                let matches = 0;
-                for (const word of query.split(" ")) {
-                    if (listing.title.toLowerCase().includes(word.toLowerCase())) {
-                        matches++;
-                    }
-                }
-                if (matches > 0) {
-                    filterResults.push({ matches, listing });
-                }
-            }
-
-            filterResults.sort((a, b) => a.matches - b.matches);
+        const suggestResults = async() => {
+            // Sort food by relevancy
+            const filteredListings = sortListings(query, listings);
 
             const suggestionsSet: Set<string> = new Set();
-            while (filterResults.length > 0) {
-                const r = filterResults.pop();
-                if (r) suggestionsSet.add(r.listing.title);
-            }
-
+            filteredListings.map(r => suggestionsSet.add(r.title));
             setSuggestions(Array.from(suggestionsSet));
-        };
+        }
 
-        fetchData();
-    }, [query]);
+        suggestResults();
+
+    }, [query, listings, users, neighborhoods]);
 
     return (
         <div className="relative w-full max-w-xl">
@@ -111,20 +86,57 @@ export default function SearchBar() {
                 </div>
             </Form>
 
-            {isFocused && suggestions.length > 0 && (
+            {isFocused && liveInput && (
                 <ul className="absolute left-0 right-0 z-30 mt-2 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl">
+
+                    { /* Search Suggestions */}
+                    { /* Food */}
                     {suggestions.map((item, idx) => (
+                        <Link href={`/search?query=${item}`} key={idx} onMouseDown={() => selectSuggestion(item)}>
+                            <li
+                                className="cursor-pointer border-b border-stone-100 px-4 py-3 text-sm text-stone-700 transition-colors last:border-b-0 hover:bg-stone-50 hover:text-stone-900"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <Search className="h-4 w-4 text-stone-300" />
+                                    <span>{item}</span>
+                                </div>
+                            </li>
+                        </Link>
+                    ))}
+
+                    { /* If no suggestions are found */}
+                    {suggestions.length == 0 ? <li
+                        className="cursor-pointer border-b border-stone-100 px-4 py-3 text-sm text-stone-700 last:border-b-0"
+                    >
+                        <div className="flex items-center gap-3">
+                            <Search className="h-4 w-4 text-stone-300" />
+                            <span>No dishes named &quot;{liveInput}&quot;</span>
+                        </div>
+                    </li> : null}
+
+                    { /* Search for people */ }
+                    <Link href={`/search?query=${liveInput}`} onMouseDown={() => selectSuggestion(`@${liveInput}`)}>
                         <li
-                            key={idx}
-                            onMouseDown={() => selectSuggestion(item)}
                             className="cursor-pointer border-b border-stone-100 px-4 py-3 text-sm text-stone-700 transition-colors last:border-b-0 hover:bg-stone-50 hover:text-stone-900"
                         >
                             <div className="flex items-center gap-3">
-                                <Search className="h-4 w-4 text-stone-300" />
-                                <span>{item}</span>
+                                <UserRoundSearch className="h-4 w-4 text-stone-300" />
+                                <span>Search People named &quot;{liveInput}&quot;</span>
                             </div>
                         </li>
-                    ))}
+                    </Link>
+
+                    { /* Search for people */ }
+                    <Link href={`/search?query=${liveInput}`} onMouseDown={() => selectSuggestion(`!${liveInput}`)}>
+                        <li
+                            className="cursor-pointer border-b border-stone-100 px-4 py-3 text-sm text-stone-700 transition-colors last:border-b-0 hover:bg-stone-50 hover:text-stone-900"
+                        >
+                            <div className="flex items-center gap-3">
+                                <UserRoundSearch className="h-4 w-4 text-stone-300" />
+                                <span>Search neighborhoods named &quot;{liveInput}&quot;</span>
+                            </div>
+                        </li>
+                    </Link>
                 </ul>
             )}
         </div>

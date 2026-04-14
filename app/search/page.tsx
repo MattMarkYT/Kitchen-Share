@@ -3,9 +3,13 @@
 import React, { useState, useEffect } from "react";
 import pb from "../lib/pb";
 import Link from "next/link";
-import { MapPin, Search, Loader2 } from "lucide-react";
+import { Search, Loader2, MapPinSearch, UserRoundSearch } from "lucide-react";
 import { Listing } from "@/app/types/listing";
 import {ListingCard} from "@/app/components/ListingCard";
+import {useSearch} from "@/app/hooks/useSearch";
+import {pbuser} from "@/app/types/pbuser";
+import {sortListings} from "@/app/api/search";
+import {UserCard} from "@/app/components/UserCard";
 
 export type Result = {
     matches: number;
@@ -18,82 +22,42 @@ export default function SearchPage({
     searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
     let { query } = React.use(searchParams);
-    query = query == undefined || query.trim() === "" ? " " : query;
+    query = query == undefined ? " " : query;
 
-    const [listings, setListings] = useState<Listing[] | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
+    const [type, setType] = useState<'food' | 'user' | 'neighborhood'>('food');
+
+    const [listingSuggestions, setListingSuggestions] = useState<Listing[]>([]);
+    const [userSuggestions, setUserSuggestions] = useState<pbuser[]>([]);
+    const [neighborhoodSuggestions, setNeighborhoodSuggestions] = useState<Listing[]>([]);
+
+    const {listings, users, neighborhoods, loading, error} = useSearch(type === "food" ? query : query.slice(1), 1, type == 'food', type == 'user', type != 'user');
 
     useEffect(() => {
-        let cancelled = false;
 
         const fetchData = async () => {
-            setLoading(true);
-            setError(null);
+            setType(
+                query.startsWith("@") ? "user" :
+                    query.startsWith("!") ? "neighborhood" :
+                        "food"
+            );
 
-            try {
-                const queryWords = query.split(" ").filter(Boolean);
+            if (type == 'food'){
+                if (!listings.length) { setListingSuggestions(neighborhoods); }
+                else {
+                    // Sort food by relevancy
+                    const filteredListings = sortListings(query, listings);
 
-                let data: Listing[] = [];
-
-                if (queryWords.length === 0) {
-                    const allListings = await pb.collection("listings").getList<Listing>(1, 15, {
-                        sort: "-created",
-                        expand: "seller",
-                    });
-                    data = allListings.items;
-                } else {
-                    let filterStr = "";
-                    const params: Record<string, string> = {};
-
-                    queryWords.forEach((word, i) => {
-                        const key = `search${i}`;
-                        filterStr += `title ~ {:${key}}`;
-                        if (i < queryWords.length - 1) filterStr += " || ";
-                        params[key] = word;
-                    });
-
-                    const dataBeforeFilter = await pb.collection("listings").getList<Listing>(1, 15, {
-                        filter: pb.filter(filterStr, params),
-                        expand: "seller",
-                    });
-
-                    const filterResults: Result[] = [];
-
-                    for (const listing of dataBeforeFilter.items) {
-                        let matches = 0;
-                        for (const word of queryWords) {
-                            if (listing.title.toLowerCase().includes(word.toLowerCase())) {
-                                matches++;
-                            }
-                        }
-                        if (matches > 0) {
-                            filterResults.push({ matches, listing });
-                        }
-                    }
-
-                    filterResults.sort((a, b) => a.matches - b.matches);
-
-                    while (filterResults.length > 0) {
-                        const r = filterResults.pop();
-                        if (r) data.push(r.listing);
-                    }
+                    setListingSuggestions(filteredListings);
                 }
-
-                if (!cancelled) setListings(data);
-            } catch (err) {
-                if (!cancelled) setError(err as Error);
-            } finally {
-                if (!cancelled) setLoading(false);
             }
+            else if (type == 'user') setUserSuggestions(users);
+            else if (type == 'neighborhood') setNeighborhoodSuggestions(neighborhoods);
+
         };
 
         fetchData();
 
-        return () => {
-            cancelled = true;
-        };
-    }, [query]);
+    }, [type, query, listings, users, neighborhoods]);
 
     if (loading) {
         return (
@@ -101,7 +65,15 @@ export default function SearchPage({
                 <div className="mx-auto flex min-h-[60vh] max-w-7xl items-center justify-center px-6">
                     <div className="flex items-center gap-3 rounded-full border border-stone-200 bg-white px-5 py-3 text-stone-600 shadow-sm">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="text-sm font-medium">Finding great local spots...</span>
+                        <span className="text-sm font-medium">Finding great local spots...
+                            {type == 'food' ?
+                                    "Finding great local spots..."
+                                : type == 'user' ?
+                                    "Finding neighbors..."
+                                : type == 'neighborhood' ?
+                                    "Finding neighborhoods..."
+                            : null}
+                        </span>
                     </div>
                 </div>
             </main>
@@ -129,31 +101,60 @@ export default function SearchPage({
                 <div className="mx-auto max-w-7xl px-6 py-12 md:px-8 md:py-16">
                     <div className="max-w-3xl">
                         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-amber-700 shadow-sm">
-                            <Search className="h-3.5 w-3.5" />
-                            Explore local food
+                            { type == 'food' ? <Search className="h-3.5 w-3.5" /> : type == 'user' ?
+                                <UserRoundSearch className="h-3.5 w-3.5" />
+                                : <MapPinSearch className="h-3.5 w-3.5" /> }
+                            { type == 'user' ?
+                                "Find neighbors"
+                                :
+                                "Explore local food"
+                            }
                         </div>
 
                         <h1 className="text-3xl font-bold tracking-tight text-stone-900 md:text-5xl">
-                            {query === " " ? "Discover neighborhood favorites" : `Results for “${query}”`}
+                            {query === "" ? "Discover neighborhood favorites"
+                                : query === "@" ? "Meet new neighbors"
+                                : `Results for “${query.slice(type != 'food' ? 1 : 0)}”`}
                         </h1>
 
                         <p className="mt-4 text-base leading-7 text-stone-600 md:text-lg">
-                            {query === " "
-                                ? "Browse the latest listings from local restaurants, pop-ups, and neighborhood food spots."
-                                : `${listings?.length ?? 0} result${listings?.length === 1 ? "" : "s"} matching your search.`}
+                            {type === "food"
+                                ?
+                                (query === " " ? "Browse the latest listings from local restaurants, pop-ups, and neighborhood food spots."
+                                        : `${listingSuggestions?.length ?? 0} result${listingSuggestions?.length === 1 ? "" : "s"}`)
+                            : type === "user" ?
+                                    `${userSuggestions?.length ?? 0} result${userSuggestions?.length === 1 ? "" : "s"}`
+                                    : type === "neighborhood" ?
+                                        `${neighborhoodSuggestions?.length ?? 0} result${neighborhoodSuggestions?.length === 1 ? "" : "s"}`
+                            : null} matching your search.
                         </p>
                     </div>
                 </div>
             </section>
 
             <section className="mx-auto max-w-7xl px-6 py-10 md:px-8 md:py-12">
-                {listings && listings.length > 0 ? (
+                {type === 'food' && (listingSuggestions.length > 0 || neighborhoodSuggestions.length > 0) ? (
                     <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                        {listings.map((listing) => (
+                        {listingSuggestions.map((listing) => (
                             <ListingCard key={listing.id} listing={listing} />
                         ))}
                     </ul>
-                ) : (
+                ) :
+                    type === 'user' && userSuggestions && userSuggestions.length > 0 ? (
+                        <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                            {userSuggestions.map((user) => (
+                                <UserCard key={user.id} user={user} />
+                            ))}
+                        </ul>
+                    ) :
+                        type === 'neighborhood' && neighborhoodSuggestions && neighborhoodSuggestions.length > 0 ? (
+                                <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                                    {neighborhoodSuggestions.map((listing) => (
+                                        <ListingCard key={listing.id} listing={listing} />
+                                    ))}
+                                </ul>
+                            )
+                    : (
                     <div className="mx-auto max-w-2xl rounded-3xl border border-stone-200 bg-white px-8 py-16 text-center shadow-sm">
                         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-amber-700">
                             <Search className="h-6 w-6" />
