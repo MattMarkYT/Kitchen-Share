@@ -25,14 +25,6 @@ export function useSearch(searchQuery = "",
         let cancelled = false;
 
         const runSearch = async () => {
-                if (!searchQuery.trim()) {
-                    setListings([]);
-                    setUsers([]);
-                    setNeighborhoods([]);
-                    setError(null);
-                    setLoading(false);
-                    return;
-                }
 
                 try {
                     setError(null);

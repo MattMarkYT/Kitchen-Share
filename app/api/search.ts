@@ -3,12 +3,9 @@ import pb from "@/app/lib/pb";
 import {Listing} from "@/app/types/listing";
 import {pbuser} from "@/app/types/pbuser";
 
-const LISTINGS_PER_PAGE = 15;
+const LISTINGS_PER_PAGE = 30;
 
 export async function searchListings(query: string, page: number) {
-    if (query.split(" ").filter(Boolean).length === 0) {
-        return [];
-    }
     const searchFilter = createFilter(query, ["title", "tags"]);
     const results = await pb.collection("listings").getList<Listing>(page, LISTINGS_PER_PAGE, {
         filter: searchFilter as string,
@@ -17,20 +14,14 @@ export async function searchListings(query: string, page: number) {
 }
 
 export async function searchUsers(query: string, page: number) {
-    if (query.split(" ").filter(Boolean).length === 0) {
-        return [];
-    }
-    const searchFilter = createFilter(query,["displayName"]);
-    const results = await pb.collection("users").getList<pbuser>(page, LISTINGS_PER_PAGE, {
-        filter: searchFilter as string,
-    });
-    return Array.from(results.items)
+    const results = await pb.collection("users").getList<pbuser>(page, LISTINGS_PER_PAGE, { filter: pb.filter(
+        "displayName ~ {:search0} || displayName ~ {:search1}",
+        {search0: query, search1: query.toLowerCase()}
+        )});
+    return results.items;
 }
 
 export async function searchNeighborhoods(query: string, page: number) {
-    if (query.split(" ").filter(Boolean).length === 0) {
-        return [];
-    }
     const searchFilter = createFilter(query, ["location"]);
     const results = await pb.collection("listings").getList<Listing>(page, LISTINGS_PER_PAGE, {
         filter: searchFilter as string,
@@ -60,4 +51,29 @@ function createFilter(query: string, fields: string[]) {
 
     });
     return pb.filter(filterStr, params)
+}
+
+type Result = {
+    matches: number;
+    listing: Listing;
+};
+export function sortListings(query: string, listings: Listing[]) {
+    const filterResults: Result[] = [];
+    for (const listing of listings) {
+        let matches = 0;
+        for (const word of query.split(" ")) {
+            if (listing.tags && listing.tags.toLowerCase().includes(word.toLowerCase())) {
+                matches++;
+            }
+            if (listing.title.toLowerCase().includes(word.toLowerCase())) {
+                matches++;
+            }
+        }
+        if (matches > 0) {
+            filterResults.push({ matches, listing });
+        }
+    }
+
+    filterResults.sort((a, b) => a.matches - b.matches);
+    return filterResults.map(r => r.listing);
 }
