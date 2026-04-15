@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {useCurrentUser} from "@/app/hooks";
 import PillButton from "@/app/components/PillButton";
 import InputField from "@/app/components/InputField";
+import { CATEGORIES } from "@/app/types/categories";
 
 const ALLERGY_OPTIONS = ["Gluten", "Dairy", "Nuts", "Eggs", "Soy", "Shellfish", "Fish", "Wheat"];
 
@@ -14,6 +15,7 @@ type Errors = {
     price?: string;
     location?: string;
     images?: string;
+    tags?: string;
 };
 
 export default function CreateListing() {
@@ -25,6 +27,7 @@ export default function CreateListing() {
     const [title, setTitle] = useState("");
     const [location, setLocation] = useState("");
     const [tags, setTags] = useState("");
+    const [additionalTags, setAdditionalTags] = useState("");
     const [description, setDescription] = useState("");
     const [allergies, setAllergies] = useState<string[]>([]);
     const [errors, setErrors] = useState<Errors>({});
@@ -72,6 +75,7 @@ export default function CreateListing() {
         if (!title.trim()) newErrors.title = "Title is required";
         if (!price || isNaN(Number(price)) || Number(price) < 0) newErrors.price = "Valid price is required";
         if (!location.trim()) newErrors.location = "Location is required";
+        if (!tags.trim()) newErrors.tags = "Category is required";
         if (images.length === 0) newErrors.images = "Please upload at least one photo";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -86,6 +90,7 @@ export default function CreateListing() {
             data.append("title", title.trim());
             data.append("price", price);
             data.append("location", location.trim());
+            data.append("tags", tags.trim().concat(" " + additionalTags));
             data.append("description", description.trim());
             data.append("allergies", !allergies.length ? "None" : allergies.join(", "));
             data.append("seller", pb.authStore.record?.id ?? "");
@@ -176,9 +181,12 @@ export default function CreateListing() {
                             rows={4}
                 />
 
-                <InputField label="Tags" fieldType="textL" optional={true}
-                            placeholder="Add some tags to help buyers find your food... (separate with commas)"
+                <InputField label="Category" fieldType="selection" selectOptions={CATEGORIES} selectPlaceholder="Select a category" error={errors.tags}
                             onChange={e => setTags(e.target.value)}
+                />
+                <InputField label="Tags" fieldType="textL" optional={true}
+                            placeholder="Add some tags to help buyers find your food... (separate with spaces)"
+                            onChange={e => setAdditionalTags(e.target.value)}
                             rows={2}
                 />
 

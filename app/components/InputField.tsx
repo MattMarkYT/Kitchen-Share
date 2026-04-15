@@ -6,6 +6,7 @@ type FormInputProps = {
     optional?: boolean;
     fieldType?: "textS" | "textL" | "selection";
     selectOptions?: string[];
+    selectPlaceholder?: string;
 } & React.InputHTMLAttributes<HTMLInputElement>
     & React.TextareaHTMLAttributes<HTMLTextAreaElement>
     & React.SelectHTMLAttributes<HTMLSelectElement>
@@ -16,6 +17,7 @@ export default function InputField({
                                         optional = false,
                                         fieldType = "textS",
                                         selectOptions,
+                                        selectPlaceholder,
                                         ...inputProps
                                   }: FormInputProps) {
 
@@ -59,7 +61,7 @@ export default function InputField({
                             ? errorColor
                             : regularColor
                     }`}>
-                    <option value="">Select a category</option>
+                    <option value="">{selectPlaceholder}</option>
                     {selectOptions == undefined ? null : selectOptions.map(c => <option key={c} value={c}>{c}</option>)}
 
                 </select>
