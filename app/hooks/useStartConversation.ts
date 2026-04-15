@@ -20,7 +20,7 @@ export function useStartConversation(userId: string) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const startConversation = useCallback(async (listingId?: string) => {
+    const startConversation = useCallback(async (listingId?: string, initialOffer?: number) => {
         if (!currentUserId) {
             router.push('/auth');
             return;
@@ -45,6 +45,7 @@ export function useStartConversation(userId: string) {
                         buyer: currentUserId,
                         seller: userId,
                         listing: listingId ?? '',
+                        initial_offer: initialOffer ?? 0,
                         buyer_deleted: false,
                         seller_deleted: false,
                     });
