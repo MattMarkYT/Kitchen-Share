@@ -31,7 +31,7 @@ export default function ItemPage() {
     const [listing, setListing] = useState<Listing | null>(null);
     const [seller, setSeller] = useState<Seller | null>(null);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
-    const { startConversation: handleMessage, loading: messagingLoading, error: messagingError } = useStartConversation(seller?.id || '');
+    const { startConversation: startConversation, loading: messagingLoading, error: messagingError } = useStartConversation(seller?.id || '');
 
 
     const renderStars = (rating: number) => {
@@ -120,11 +120,11 @@ export default function ItemPage() {
                             </div>
                         </div>
                         <div className="mt-5 flex gap-4">
-                            <PillButton type="button" onClick={() => handleMessage(id)} disabled={messagingLoading} className="w-full">
+                            <PillButton type="button" onClick={() => startConversation(id)} disabled={messagingLoading} className="w-full">
                                 {messagingLoading ? 'Opening...' : 'Buy'}
                             </PillButton>
 
-                            <PillButton type="button" onClick={() => handleMessage(id)} disabled={messagingLoading} className="w-full">
+                            <PillButton type="button" onClick={() => startConversation(id)} disabled={messagingLoading} className="w-full">
                                 {messagingLoading ? 'Opening...' : 'Make Offer'}
                             </PillButton>
                         </div>
