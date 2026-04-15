@@ -131,8 +131,10 @@ export default function ConversationPage() {
     const isBuyer = conversation?.buyer === currentUserId;
     const otherUser = isBuyer ? conversation?.expand?.seller : conversation?.expand?.buyer;
     const listing = conversation?.expand?.listing;
-    const otherAvatarUrl = otherUser?.avatar ? pb.files.getURL(otherUser, otherUser.avatar) : '';
-    const listingImageUrl = listing?.main_image ? pb.files.getURL(listing, listing.main_image) : '';
+    const otherAvatarUrl = otherUser?.avatar ? pb.files.getURL(otherUser, otherUser.avatar) : '/placeholder-avatar.png';
+    const listingImageUrl = listing?.main_image ? pb.files.getURL(listing, listing.main_image) : '/placeholder.png';
+    const listingPrice = listing?.price ? listing.price : -1;
+    const offerPrice = conversation?.offerPrice ? conversation.offerPrice : -1;
 
     const handleSend = async () => {
         if (!newMessage.trim()) return;
@@ -147,7 +149,7 @@ export default function ConversationPage() {
             handleSend();
         }
     };
-
+    console.log(`isBuyer: ${isBuyer}, listingPrice: ${listingPrice}, offerPrice: ${offerPrice}`)
     return (
         <div className="min-h-screen bg-gray-100 flex items-start justify-center p-4 pt-8">
             <div className="w-full max-w-lg bg-white rounded-2xl shadow-lg flex flex-col overflow-hidden" style={{ height: 'min(80vh, 700px)' }}>
@@ -214,10 +216,24 @@ export default function ConversationPage() {
                         {loadingMore && (
                             <p className="text-center text-gray-400 text-xs py-2">Loading...</p>
                         )}
-                        {!hasMore && messages.length > 0 && (
-                            <p className="text-center text-gray-300 text-xs py-2">Beginning of conversation</p>
-                        )}
-
+                        {!isBuyer && listingPrice !== -1 && offerPrice !== -1 ?
+                            (
+                                offerPrice == listingPrice ?
+                                    (<p className="mx-auto w-fit rounded-full border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-100 px-4 py-2 text-center text-xs font-medium text-emerald-900 shadow-sm">
+                                        The buyer wants to buy at full price:{" "}
+                                        <span className="font-bold">${listingPrice.toFixed(2)}</span>
+                                    </p>)
+                                    :
+                                    (<p className="mx-auto w-fit rounded-full border border-blue-300 bg-gradient-to-r from-blue-50 to-blue-100 px-4 py-2 text-center text-xs font-medium text-blue-800 shadow-sm">
+                                        The buyer is asking to pay{" "}
+                                        <span className="font-bold">${offerPrice.toFixed(2)}</span>
+                                    </p>)
+                            )
+                            :
+                            (!hasMore && messages.length > 0 && (
+                                <p className="text-center text-gray-400 text-xs py-2">Beginning of conversation</p>
+                            ))
+                        }
                         {messages.length === 0 && (
                             <p className="text-center text-gray-400 text-sm py-8">
                                 No messages yet. Start the conversation!
