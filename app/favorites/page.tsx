@@ -2,12 +2,10 @@
 
 import { ListingCard } from "@/app/components/ListingCard";
 import { useFavorites } from "@/app/hooks/useFavorites";
-import pb from "@/app/lib/pb";
+import {useCurrentUser} from "@/app/hooks";
 
 export default function Favorites() {
-    const user = pb.authStore.model;
-    const userId = user?.id || null;
-
+    const userId = useCurrentUser();
     const { favorites, loading } = useFavorites(userId);
 
     if (loading) {
