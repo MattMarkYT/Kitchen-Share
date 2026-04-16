@@ -1,17 +1,51 @@
 "use client";
 
-import {Listing} from "@/app/types/listing";
+import { Listing } from "@/app/types/listing";
 import pb from "@/app/lib/pb";
 import Link from "next/link";
-import {MapPin, Share2, Star} from "lucide-react";
-import React, {useState} from "react";
+import { Heart, MapPin, Share2, Star } from "lucide-react";
+import React, { useEffect, useState } from "react";
 
 export function ListingCard({ listing }: { listing: Listing }) {
     const [copied, setCopied] = useState(false);
+    const [isFavorite, setIsFavorite] = useState(false);
+    const [favoriteRecordId, setFavoriteRecordId] = useState<string | null>(null);
+
     const imgUrl =
         pb.files.getURL(listing, listing.main_image as string, { thumb: "640x480" }) ||
         "/placeholder.jpg";
+
     const rating = listing.expand?.seller?.rating;
+    const user = pb.authStore.model;
+    const userId = user?.id || null;
+
+    useEffect(() => {
+        const checkFavoriteStatus = async () => {
+            if (!userId) {
+                setIsFavorite(false);
+                setFavoriteRecordId(null);
+                return;
+            }
+
+            try {
+                const records = await pb.collection("favorites").getFullList({
+                    filter: `user="${userId}" && listing="${listing.id}"`,
+                });
+
+                if (records.length > 0) {
+                    setIsFavorite(true);
+                    setFavoriteRecordId(records[0].id);
+                } else {
+                    setIsFavorite(false);
+                    setFavoriteRecordId(null);
+                }
+            } catch (error) {
+                console.error("Error checking favorite status:", error);
+            }
+        };
+
+        checkFavoriteStatus();
+    }, [userId, listing.id]);
 
     const copyListingLink = async () => {
         const url = `${window.location.origin}/listing/${listing.id}`;
@@ -24,6 +58,34 @@ export function ListingCard({ listing }: { listing: Listing }) {
         }
     };
 
+    const toggleFavorite = async (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (!userId) {
+            alert("Please log in to add items to your favorites.");
+            return;
+        }
+
+        try {
+            if (isFavorite && favoriteRecordId) {
+                await pb.collection("favorites").delete(favoriteRecordId);
+                setIsFavorite(false);
+                setFavoriteRecordId(null);
+            } else {
+                const newFavorite = await pb.collection("favorites").create({
+                    user: userId,
+                    listing: listing.id,
+                });
+
+                setIsFavorite(true);
+                setFavoriteRecordId(newFavorite.id);
+            }
+        } catch (error) {
+            console.error("Error toggling favorite:", error);
+        }
+    };
+
     return (
         <li className="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
             <Link href={`/listing/${listing.id}`} className="block">
@@ -33,6 +95,20 @@ export function ListingCard({ listing }: { listing: Listing }) {
                         alt={listing.title}
                         className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
                     />
+
+                    {/* Heart Button */}
+                    <button
+                        type="button"
+                        onClick={toggleFavorite}
+                        className="absolute top-3 right-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-stone-700 shadow-sm backdrop-blur-sm transition hover:scale-110"
+                    >
+                        <Heart
+                            className={`h-5 w-5 transition ${
+                                isFavorite ? "fill-red-300 text-red-300" : "text-stone-600"
+                            }`}
+                        />
+                    </button>
+
                     <div className="absolute bottom-3 right-3 rounded-full bg-white/60 px-3 py-1 text-sm font-semibold text-stone-900 shadow-sm backdrop-blur-sm">
                         ${listing.price.toLocaleString()}
                     </div>
@@ -51,12 +127,14 @@ export function ListingCard({ listing }: { listing: Listing }) {
                                 </span>
                             </div>
                         </div>
+
                         {rating !== null && rating !== undefined && (
                             <div className="mt-2 flex items-center justify-between gap-3 text-sm text-stone-500">
                                 <div className="inline-flex items-center gap-1">
                                     <Star className="h-4 w-4 text-amber-500" />
                                     <span>{rating.toFixed(1)}</span>
                                 </div>
+
                                 <div className="flex items-center gap-2">
                                     <button
                                         type="button"
