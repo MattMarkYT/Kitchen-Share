@@ -98,17 +98,19 @@ export function ListingCard({ listing }: { listing: Listing }) {
                     />
 
                     {/* Heart Button */}
-                    <button
-                        type="button"
-                        onClick={toggleFavorite}
-                        className="absolute top-3 right-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-stone-700 shadow-sm backdrop-blur-sm transition hover:scale-110"
-                    >
-                        <Heart
-                            className={`h-5 w-5 transition ${
-                                isFavorite ? "fill-red-300 text-red-300" : "text-stone-600"
-                            }`}
-                        />
-                    </button>
+                    {userId &&
+                        <button
+                            type="button"
+                            onClick={toggleFavorite}
+                            className="absolute top-3 right-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-stone-700 shadow-sm backdrop-blur-sm transition hover:scale-110"
+                        >
+                            <Heart
+                                className={`h-5 w-5 transition ${
+                                    isFavorite ? "fill-red-300 text-red-300" : "text-stone-600"
+                                }`}
+                            />
+                        </button>
+                    }
 
                     <div className="absolute bottom-3 right-3 rounded-full bg-white/60 px-3 py-1 text-sm font-semibold text-stone-900 shadow-sm backdrop-blur-sm">
                         ${listing.price.toLocaleString()}

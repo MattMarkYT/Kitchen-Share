@@ -93,9 +93,11 @@ export default function Navbar() {
                     <Link href="/map" className="transition-colors hover:text-stone-900">
                         Map
                     </Link>
-                    <Link href="/favorites" className="transition-colors hover:text-stone-900">
-                        Favorites
-                    </Link>
+                    {currentUserId &&
+                        <Link href="/favorites" className="transition-colors hover:text-stone-900">
+                            Favorites
+                        </Link>
+                    }
                 </div>
 
                 <div className="mx-auto hidden w-full max-w-xl md:block">

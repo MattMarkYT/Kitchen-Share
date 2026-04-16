@@ -3,10 +3,27 @@
 import { ListingCard } from "@/app/components/ListingCard";
 import { useFavorites } from "@/app/hooks/useFavorites";
 import {useCurrentUser} from "@/app/hooks";
+import {useEffect} from "react";
+import { useRouter } from "next/navigation";
+import pb from "@/app/lib/pb";
 
 export default function Favorites() {
     const userId = useCurrentUser();
     const { favorites, loading } = useFavorites(userId);
+    const router = useRouter();
+
+    useEffect(() => {
+        if (!pb.authStore.isValid) {
+            router.push("/auth");
+        }
+    }, [userId, router]);
+
+    // We don't want the user to see the create listing page if they aren't logged in
+    if (!userId) {
+        return  <div className="min-h-screen flex items-center justify-center bg-gray-100">
+            <p className="text-gray-500">Loading...</p>
+        </div>
+    }
 
     if (loading) {
         return (
