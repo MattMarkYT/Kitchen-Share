@@ -141,7 +141,7 @@ export default function ItemPage() {
                             </div>
                         </div>
                         <div className="mt-5 flex gap-4">
-                            <PillButton type="button" onClick={() => startConversation(id)} disabled={messagingLoading} className="w-full">
+                            <PillButton type="button" onClick={() => startConversation(id, listing.price)} disabled={messagingLoading} className="w-full">
                                 {messagingLoading ? 'Opening...' : 'Buy'}
                             </PillButton>
                             <PillButton type="button" onClick={handleOpenOfferModal} disabled={messagingLoading} className="w-full">
