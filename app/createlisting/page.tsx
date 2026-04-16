@@ -39,7 +39,7 @@ export default function CreateListing() {
     const currentUserId = useCurrentUser();
     useEffect(() => {
         if (!pb.authStore.isValid) {
-            router.push("/auth");
+            router.push("/auth?previous=@createlisting");
         }
     }, [currentUserId, router]);
 

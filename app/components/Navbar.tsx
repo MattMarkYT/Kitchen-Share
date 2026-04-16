@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import {usePathname, useRouter} from "next/navigation";
 import Link from "next/link";
 import pb from "../lib/pb";
 import { useCurrentUser } from "../hooks";
@@ -19,6 +19,7 @@ type UserRecord = {
 export default function Navbar() {
     const router = useRouter();
     const currentUserId = useCurrentUser();
+    const currentPath = usePathname();
 
     const [user, setUser] = useState<UserRecord | null>(null);
     const [menuOpen, setMenuOpen] = useState(false);
@@ -28,7 +29,6 @@ export default function Navbar() {
         pb.realtime.unsubscribeByPrefix('');
         pb.authStore.clear();
         setMenuOpen(false);
-        router.push("/");
         router.refresh();
     };
 
@@ -178,13 +178,13 @@ export default function Navbar() {
                         </>
                     ) : (
                         <>
-                            <Link href="/auth">
+                            <Link href={`/auth?previous=@${currentPath.slice(1)}`}>
                                 <PillButton>
                                     Log in
                                 </PillButton>
                             </Link>
 
-                            <Link href="/auth?register=true">
+                            <Link href={`/auth?previous=!${currentPath.slice(1)}`}>
                                 <PillButton>
                                     Join the community
                                 </PillButton>

@@ -20,12 +20,14 @@ const FormInput = ({ label, type, value, onChange }: { label: string, type: stri
 
 export default function AuthPage() {
     const searchParams = useSearchParams();
-    const [isLogin, setIsLogin] = useState(searchParams.get('register') !== 'true');
+    const previousPage = searchParams.get('previous');
+    const [isLogin, setIsLogin] = useState(previousPage !== null ? previousPage?.charAt(0) !== '!' : true);
     const [email, setEmail] = useState('');
     const [displayName, setDisplayName] = useState('');
     const [password, setPassword] = useState('');
     const [passwordConfirm, setPasswordConfirm] = useState('');
     const [error, setError] = useState('');
+
 
     const router = useRouter();
 
@@ -45,7 +47,7 @@ export default function AuthPage() {
                 await pb.collection('users').authWithPassword(email, password);
             }
             const record = pb.authStore.model;
-            router.push(!record?.profileSetup ? `/profile/${record?.id}` : '/');
+            router.push(previousPage == null ? (!record?.profileSetup ? `/profile/${record?.id}` : '/') : `/${previousPage.slice(1)}`);
         } catch (err: any) {
             console.error(err);
 

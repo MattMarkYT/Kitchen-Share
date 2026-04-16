@@ -14,7 +14,7 @@ export default function Favorites() {
 
     useEffect(() => {
         if (!pb.authStore.isValid) {
-            router.push("/auth");
+            router.push("/auth?previous=@favorites");
         }
     }, [userId, router]);
 

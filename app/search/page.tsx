@@ -112,7 +112,7 @@ export default function SearchPage({
                         </div>
 
                         <h1 className="text-3xl font-bold tracking-tight text-stone-900 md:text-5xl">
-                            {query === "" ? "Discover neighborhood favorites"
+                            {query.trim() === "" ? "Discover neighborhood favorites"
                                 : query === "@" ? "Meet new neighbors"
                                 : `Results for “${query.slice(type != 'food' ? 1 : 0)}”`}
                         </h1>
