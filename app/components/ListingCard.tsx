@@ -5,6 +5,8 @@ import pb from "@/app/lib/pb";
 import Link from "next/link";
 import { Heart, MapPin, Share2, Star } from "lucide-react";
 import React, { useEffect, useState } from "react";
+import { useCurrentUser } from "@/app/hooks";
+
 
 export function ListingCard({ listing }: { listing: Listing }) {
     const [copied, setCopied] = useState(false);
@@ -16,8 +18,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
         "/placeholder.jpg";
 
     const rating = listing.expand?.seller?.rating;
-    const user = pb.authStore.model;
-    const userId = user?.id || null;
+    const userId = useCurrentUser();
 
     useEffect(() => {
         const checkFavoriteStatus = async () => {
