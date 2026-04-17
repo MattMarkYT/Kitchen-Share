@@ -24,6 +24,65 @@ export default function ConversationPage() {
         loadMore,
     } = useConversation(conversationId, currentUserId);
 
+    const [finalizing, setFinalizing] = useState(false);
+    const [finalizationError, setFinalizationError] = useState('');
+    const [localSaleStatus, setLocalSaleStatus] = useState<string | null>(null);
+
+    useEffect(() => {
+        setLocalSaleStatus(conversation?.sale_status ?? conversation?.status ?? null);
+    }, [conversation?.sale_status, conversation?.status]);
+
+    const handleFinalizeSale = useCallback(async (status: 'confirmed' | 'cancelled') => {
+        if (!conversationId) return;
+
+        setFinalizationError('');
+        setFinalizing(true);
+
+        try {
+            const finalizationMessage = status === 'confirmed'
+                ? 'Seller has confirmed the purchase.'
+                : 'Seller has cancelled the sale.';
+
+            const updates = {
+                sale_status: status,
+                last_message: finalizationMessage,
+            };
+
+            const promises = [
+                pb.collection('conversations').update(conversationId, updates),
+                pb.collection('messages').create({
+                    conversation: conversationId,
+                    sender: currentUserId,
+                    body: finalizationMessage,
+                    read: false,
+                }),
+            ];
+
+            if (status === 'confirmed') {
+                promises.push(
+                    pb.collection('conversations').update(conversationId, {
+                        seller_archived: true,
+                    })
+                );
+
+                if (conversation?.expand?.seller?.id) {
+                    const currentCount = Number(conversation.expand.seller.successfulListings ?? 0);
+                    promises.push(
+                        pb.collection('users').update(conversation.expand.seller.id, {
+                            successfulListings: currentCount + 1,
+                        })
+                    );
+                }
+            }
+
+            await Promise.all(promises);
+            setLocalSaleStatus(status);
+        } catch (err: any) {
+            setFinalizationError(err?.message || 'Failed to finalize sale.');
+        } finally {
+            setFinalizing(false);
+        }
+    }, [conversation, conversationId]);
 
     const [newMessage, setNewMessage] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -133,8 +192,10 @@ export default function ConversationPage() {
     const listing = conversation?.expand?.listing;
     const otherAvatarUrl = otherUser?.avatar ? pb.files.getURL(otherUser, otherUser.avatar) : '/placeholder-avatar.png';
     const listingImageUrl = listing?.main_image ? pb.files.getURL(listing, listing.main_image) : '/placeholder.png';
-    const listingPrice = listing?.price ? listing.price : -1;
-    const offerPrice = conversation?.offerPrice ? conversation.offerPrice : -1;
+    const listingPrice = listing?.price ?? -1;
+    const offerPrice = conversation?.offerPrice ?? conversation?.initial_offer ?? null;
+    const saleStatus = localSaleStatus;
+    const canFinalizeSale = !isBuyer && !!listing && !saleStatus;
 
     const handleSend = async () => {
         if (!newMessage.trim()) return;
@@ -205,6 +266,54 @@ export default function ConversationPage() {
                     </button>
                 </div>
 
+                {(saleStatus || canFinalizeSale) && (
+                    <div className="px-5 pb-4 border-b border-gray-100 bg-gray-50">
+                        {saleStatus ? (
+                            <div className="flex flex-col gap-2">
+                                <span
+                                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
+                                        saleStatus === 'confirmed'
+                                            ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                                            : 'border-red-200 bg-red-50 text-red-900'
+                                    }`}
+                                >
+                                    {saleStatus === 'confirmed' ? 'Sale confirmed' : 'Sale cancelled'}
+                                </span>
+                                <p className="text-xs text-gray-500">
+                                    {saleStatus === 'confirmed'
+                                        ? 'The listing has been marked unavailable.'
+                                        : 'This sale has been cancelled by the seller.'}
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-3">
+                                <p className="text-xs text-gray-500">Finalize this sale when you are ready.</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <PillButton
+                                        type="button"
+                                        onClick={() => handleFinalizeSale('cancelled')}
+                                        disabled={finalizing}
+                                        className="bg-gray-100 text-gray-800"
+                                    >
+                                        {finalizing ? '...' : 'Cancel sale'}
+                                    </PillButton>
+                                    <PillButton
+                                        type="button"
+                                        onClick={() => handleFinalizeSale('confirmed')}
+                                        disabled={finalizing}
+                                        className="bg-emerald-600 text-white"
+                                    >
+                                        {finalizing ? '...' : 'Confirm purchase'}
+                                    </PillButton>
+                                </div>
+                                {finalizationError && (
+                                    <p className="text-red-500 text-xs">{finalizationError}</p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* messages */}
                 <div
                     ref={scrollContainerRef}
@@ -216,24 +325,23 @@ export default function ConversationPage() {
                         {loadingMore && (
                             <p className="text-center text-gray-400 text-xs py-2">Loading...</p>
                         )}
-                        {!isBuyer && listingPrice !== -1 && offerPrice !== -1 ?
-                            (
-                                offerPrice == listingPrice ?
-                                    (<p className="mx-auto w-fit rounded-full border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-100 px-4 py-2 text-center text-xs font-medium text-emerald-900 shadow-sm">
-                                        The buyer wants to buy at full price:{" "}
-                                        <span className="font-bold">${listingPrice.toFixed(2)}</span>
-                                    </p>)
-                                    :
-                                    (<p className="mx-auto w-fit rounded-full border border-blue-300 bg-gradient-to-r from-blue-50 to-blue-100 px-4 py-2 text-center text-xs font-medium text-blue-800 shadow-sm">
-                                        The buyer is asking to pay{" "}
-                                        <span className="font-bold">${offerPrice.toFixed(2)}</span>
-                                    </p>)
+                        {!isBuyer && listingPrice !== -1 && offerPrice != null ? (
+                            offerPrice === listingPrice ? (
+                                <p className="mx-auto w-fit rounded-full border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-100 px-4 py-2 text-center text-xs font-medium text-emerald-900 shadow-sm">
+                                    The buyer wants to buy at full price:{" "}
+                                    <span className="font-bold">${listingPrice.toFixed(2)}</span>
+                                </p>
+                            ) : (
+                                <p className="mx-auto w-fit rounded-full border border-blue-300 bg-gradient-to-r from-blue-50 to-blue-100 px-4 py-2 text-center text-xs font-medium text-blue-800 shadow-sm">
+                                    The buyer is asking to pay{" "}
+                                    <span className="font-bold">${offerPrice.toFixed(2)}</span>
+                                </p>
                             )
-                            :
-                            (!hasMore && messages.length > 0 && (
+                        ) : (
+                            !hasMore && messages.length > 0 && (
                                 <p className="text-center text-gray-400 text-xs py-2">Beginning of conversation</p>
-                            ))
-                        }
+                            )
+                        )}
                         {messages.length === 0 && (
                             <p className="text-center text-gray-400 text-sm py-8">
                                 No messages yet. Start the conversation!

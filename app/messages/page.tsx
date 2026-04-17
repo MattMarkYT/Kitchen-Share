@@ -59,6 +59,7 @@ export default function MessagesPage() {
                             const avatarUrl = getAvatarUrl(otherUser);
                             const listing = convo.expand?.listing;
                             const listingImageUrl = listing?.main_image ? pb.files.getURL(listing, listing.main_image) : '';
+                            const saleStatus = convo.sale_status ?? convo.status ?? null;
 
                             return (
                                 <Link
@@ -92,9 +93,21 @@ export default function MessagesPage() {
                                                     {otherUser?.displayName || 'Unknown'}
                                                 </p>
                                                 {listing ? (
-                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 shrink-0">
-                                                        {listing.title?.length > 16 ? listing.title.slice(0, 16) + '…' : listing.title}
-                                                    </span>
+                                                    <>
+                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 shrink-0">
+                                                            {listing.title?.length > 16 ? listing.title.slice(0, 16) + '…' : listing.title}
+                                                        </span>
+                                                        {saleStatus && (
+                                                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                                                saleStatus === 'confirmed'
+                                                                    ? 'bg-emerald-50 text-emerald-700'
+                                                                    : 'bg-red-50 text-red-700'
+                                                            }`}
+                                                            >
+                                                                {saleStatus === 'confirmed' ? 'Confirmed' : 'Cancelled'}
+                                                            </span>
+                                                        )}
+                                                    </>
                                                 ) : (
                                                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-400 shrink-0">
                                                         DM
