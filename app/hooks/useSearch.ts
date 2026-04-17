@@ -11,6 +11,7 @@ export function useSearch(searchQuery = "",
                           searchListing = true,
                           searchUser = true,
                           searchNeighborhood = true,
+                          allowEmptyQuery = false
                           ) {
     const [listings, setListings] = useState<Listing[]>([]);
     const [users, setUsers] = useState<pbuser[]>([]);
@@ -25,27 +26,28 @@ export function useSearch(searchQuery = "",
         let cancelled = false;
 
         const runSearch = async () => {
+            if (!allowEmptyQuery && searchQuery.trim().length == 0) return;
 
                 try {
                     setError(null);
                     setLoading(true);
 
                     if (!cancelled && searchListing) {
-                        const bruh = await searchListings(searchQuery, page);
-                        setListings(await searchListings(searchQuery, page));
-                        console.log("Listings fetched: {}", bruh.length);
+                        const fetchedListings = await searchListings(searchQuery, page);
+                        setListings(fetchedListings);
+                        console.log("Listings fetched: ", fetchedListings.length);
                     }
 
                     if (!cancelled && searchUser) {
-                        const bruh = await searchUsers(searchQuery, page);
-                        setUsers(bruh);
-                        console.log("Users fetched: {}", bruh.length);
+                        const fetchedUsers = await searchUsers(searchQuery, page);
+                        setUsers(fetchedUsers);
+                        console.log("Users fetched: ", fetchedUsers.length);
                     }
 
                     if (!cancelled && searchNeighborhood) {
-                        const bruh = await searchNeighborhoods(searchQuery, page);
-                        setNeighborhoods(bruh);
-                        console.log("Neighborhoods fetched: {}", bruh.length);
+                        const fetchedNeighborhoods = await searchNeighborhoods(searchQuery, page);
+                        setNeighborhoods(fetchedNeighborhoods);
+                        console.log("Neighborhoods fetched: ", fetchedNeighborhoods.length);
                     }
 
 

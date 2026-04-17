@@ -58,7 +58,7 @@ export default function SearchBar() {
 
         suggestResults();
 
-    }, [query, listings, users, neighborhoods]);
+    }, [query, listings]);
 
     return (
         <div className="relative w-full max-w-xl">

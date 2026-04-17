@@ -30,7 +30,13 @@ export default function SearchPage({
     const [userSuggestions, setUserSuggestions] = useState<pbuser[]>([]);
     const [neighborhoodSuggestions, setNeighborhoodSuggestions] = useState<Listing[]>([]);
 
-    const {listings, users, neighborhoods, loading, error} = useSearch(type === "food" ? query : query.slice(1), 1, type == 'food', type == 'user', type != 'user');
+    const {listings, users, neighborhoods, loading, error} = useSearch(
+        type === "food" ? query : query.slice(1),
+        1,
+        type == 'food',
+        type == 'user',
+        type != 'user',
+        true);
 
     useEffect(() => {
 
@@ -65,7 +71,7 @@ export default function SearchPage({
                 <div className="mx-auto flex min-h-[60vh] max-w-7xl items-center justify-center px-6">
                     <div className="flex items-center gap-3 rounded-full border border-stone-200 bg-white px-5 py-3 text-stone-600 shadow-sm">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="text-sm font-medium">Finding great local spots...
+                        <span className="text-sm font-medium">
                             {type == 'food' ?
                                     "Finding great local spots..."
                                 : type == 'user' ?
