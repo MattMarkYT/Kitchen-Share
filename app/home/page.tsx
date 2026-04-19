@@ -1,52 +1,102 @@
 'use client';
-import Navbar from "../components/Navbar";
 import styles from "./homepage.module.css";
 import pb from "@/app/lib/pb";
-import React, {useEffect, useState} from "react";
-import {ListingCard} from "../components/ListingCard";
-import {Listing} from "@/app/types/listing";
+import React, { useEffect, useState } from "react";
+import { ListingCard } from "../components/ListingCard";
+import { useCurrentUser, useListings } from "@/app/hooks";
+import LocationPicker from "@/app/components/LocationPicker";
+import type { pbuser } from "@/app/types/pbuser";
 
 export default function Home() {
-    const [listings, setListings] = useState<Listing[] | null>(null);
-    const [loading, setLoading]   = useState(true);
-    const [error, setError]       = useState<Error | null>(null);
+    const currentUserId = useCurrentUser();
+    const [city, setCity] = useState("");
+    const [state, setState] = useState("");
+    const [userLoading, setUserLoading] = useState(true);
 
+    // load the logged-in user's city/state as default location
     useEffect(() => {
         let cancelled = false;
 
-        const fetchData = async () => {
-            try {
-                const data = await pb.collection("listings").getFullList<Listing>({ expand: "seller" });
-                if (!cancelled) setListings(data);
-            } catch (err) {
-                if (!cancelled) setError(err as Error);
-            } finally {
-                if (!cancelled) setLoading(false);
+        async function loadUserLocation() {
+            if (currentUserId) {
+                try {
+                    const user = await pb.collection("users").getOne<pbuser>(currentUserId);
+                    if (!cancelled && user.city && user.state) {
+                        setCity(user.city);
+                        setState(user.state);
+                    }
+                } catch {
+                    // user not found or error — leave location empty for now
+                }
             }
+            if (!cancelled) setUserLoading(false);
+        }
 
-        };
-
-        fetchData();
-
+        loadUserLocation();
         return () => { cancelled = true; };
-    }, []);
+    }, [currentUserId]);
 
-    if (!listings) return <div>Loading...</div>;
+    const { listings, loading, error } = useListings({ city, state, enabled: !userLoading, excludeSeller: currentUserId });
+
+    function handleLocationChange(newCity: string, newState: string) {
+        setCity(newCity);
+        setState(newState);
+    }
+
+    if (userLoading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                <p className="text-stone-500">Loading...</p>
+            </div>
+        );
+    }
 
     return (
         <main className="min-h-screen bg-white font-sans relative overflow-hidden">
             <div className="mx-auto max-w-7xl px-6 py-10 sm:px-8 lg:px-10">
-                <h1 className="mb-8 text-4xl font-bold tracking-tight text-stone-900 sm:text-5xl">
-                    Food Near You
-                </h1>
-                <div className={styles.flexContainer}>
-                    <ul className={styles.gridLayout}>
-                        {listings.map((listing) => (
-                            <ListingCard key={listing.id} listing={listing} />
-                        ))}
-
-                    </ul>
+                {/* header row with title + location picker */}
+                <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <h1 className="text-4xl font-bold tracking-tight text-stone-900 sm:text-5xl">
+                        {city ? `Food in ${city}` : "Food Near You"}
+                    </h1>
+                    <LocationPicker
+                        city={city}
+                        state={state}
+                        onLocationChange={handleLocationChange}
+                    />
                 </div>
+
+                {/* error state */}
+                {error && (
+                    <p className="mb-6 text-sm text-red-500">
+                        Failed to load listings. Please try again.
+                    </p>
+                )}
+
+                {/* loading state */}
+                {loading && (
+                    <p className="text-stone-500">Loading listings...</p>
+                )}
+
+                {/* empty state */}
+                {!loading && !error && listings.length === 0 && (
+                    <div className="mt-16 text-center">
+                        <p className="text-lg text-stone-500">
+                            No listings found{city ? ` in ${city}, ${state}` : ""}. Try a different location!
+                        </p>
+                    </div>
+                )}
+
+                {/* listings grid */}
+                {!loading && listings.length > 0 && (
+                    <div className={styles.flexContainer}>
+                        <ul className={styles.gridLayout}>
+                            {listings.map((listing) => (
+                                <ListingCard key={listing.id} listing={listing} />
+                            ))}
+                        </ul>
+                    </div>
+                )}
             </div>
         </main>
     );
