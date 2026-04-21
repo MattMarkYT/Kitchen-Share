@@ -5,3 +5,4 @@ export { useConversations } from './useConversations';
 export { useConversation } from './useConversation';
 export { useStartConversation } from './useStartConversation';
 export { useListings } from './useListings';
+export { useBlock } from './useBlock';
