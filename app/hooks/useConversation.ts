@@ -196,6 +196,18 @@ export function useConversation(conversationId: string, currentUserId: string | 
         }
     }, [currentUserId, conversationId]);
 
+    const refreshConversation = useCallback(async () => {
+    if (!conversationId || !currentUserId) return;
+    try {
+        const convo = await pb.collection('conversations').getOne(conversationId, {
+            expand: 'buyer,seller,listing',
+        });
+        setConversation(convo);
+    } catch {
+        setError('Failed to refresh conversation.');
+    }
+}, [conversationId, currentUserId]);
+
     return {
         conversation,
         messages,
@@ -206,5 +218,6 @@ export function useConversation(conversationId: string, currentUserId: string | 
         error,
         sendMessage,
         loadMore,
+        refreshConversation,
     };
 }

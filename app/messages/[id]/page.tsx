@@ -22,67 +22,65 @@ export default function ConversationPage() {
         error,
         sendMessage,
         loadMore,
+        refreshConversation
     } = useConversation(conversationId, currentUserId);
 
     const [finalizing, setFinalizing] = useState(false);
     const [finalizationError, setFinalizationError] = useState('');
     const [localSaleStatus, setLocalSaleStatus] = useState<string | null>(null);
 
+    // Rating state
+    const [selectedRating, setSelectedRating] = useState(0);
+    const [submittingRating, setSubmittingRating] = useState(false);
+    const [ratingError, setRatingError] = useState('');
+    const [hasReviewed, setHasReviewed] = useState(false);
+
     useEffect(() => {
-        setLocalSaleStatus(conversation?.sale_status ?? conversation?.status ?? null);
-    }, [conversation?.sale_status, conversation?.status]);
+        setLocalSaleStatus(null);
+    }, [conversation]);
 
     const handleFinalizeSale = useCallback(async (status: 'confirmed' | 'cancelled') => {
-        if (!conversationId) return;
+    if (!conversationId || !currentUserId) return;
 
-        setFinalizationError('');
-        setFinalizing(true);
+    setFinalizationError('');
+    setFinalizing(true);
 
-        try {
-            const finalizationMessage = status === 'confirmed'
+    try {
+        const finalizationMessage =
+            status === 'confirmed'
                 ? 'Seller has confirmed the purchase.'
                 : 'Seller has cancelled the sale.';
 
-            const updates = {
-                sale_status: status,
-                last_message: finalizationMessage,
-            };
+        // 1. Update the conversation first
+        await pb.collection('conversations').update(conversationId, {
+            last_message: finalizationMessage,
+            ...(status === 'confirmed' ? { seller_archived: true } : {}),
+        });
 
-            const promises = [
-                pb.collection('conversations').update(conversationId, updates),
-                pb.collection('messages').create({
-                    conversation: conversationId,
-                    sender: currentUserId,
-                    body: finalizationMessage,
-                    read: false,
-                }),
-            ];
+        // 2. Create the message after the conversation update succeeds
+        await pb.collection('messages').create({
+            conversation: conversationId,
+            sender: currentUserId,
+            body: finalizationMessage,
+            read: false,
+        });
 
-            if (status === 'confirmed') {
-                promises.push(
-                    pb.collection('conversations').update(conversationId, {
-                        seller_archived: true,
-                    })
-                );
-
-                if (conversation?.expand?.seller?.id) {
-                    const currentCount = Number(conversation.expand.seller.successfulListings ?? 0);
-                    promises.push(
-                        pb.collection('users').update(conversation.expand.seller.id, {
-                            successfulListings: currentCount + 1,
-                        })
-                    );
-                }
-            }
-
-            await Promise.all(promises);
-            setLocalSaleStatus(status);
-        } catch (err: any) {
-            setFinalizationError(err?.message || 'Failed to finalize sale.');
-        } finally {
-            setFinalizing(false);
+        // 3. Update seller stats only for confirmed sales
+        if (status === 'confirmed' && conversation?.expand?.seller?.id) {
+            const currentCount = Number(conversation.expand.seller.successfulListings ?? 0);
+            await pb.collection('users').update(conversation.expand.seller.id, {
+                successfulListings: currentCount + 1,
+            });
         }
-    }, [conversation, conversationId]);
+
+        setLocalSaleStatus(status);
+        await refreshConversation();
+    } catch (err: any) {
+        setFinalizationError(err?.message || 'Failed to finalize sale.');
+    } finally {
+        setFinalizing(false);
+    }
+}, [conversation, conversationId, currentUserId, refreshConversation]);
 
     const [newMessage, setNewMessage] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -108,7 +106,7 @@ export default function ConversationPage() {
 
         if (prevCount === 0) {
             // initial load — jump straight to bottom
-            messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+            messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
         } else if (newCount > prevCount) {
             // check if the new message was appended at the bottom
 
@@ -159,6 +157,81 @@ export default function ConversationPage() {
         return null;
     }, [messages, currentUserId]);
 
+
+    const isBuyer = conversation?.buyer === currentUserId;
+    const otherUser = isBuyer ? conversation?.expand?.seller : conversation?.expand?.buyer;
+    const listing = conversation?.expand?.listing;
+    const otherAvatarUrl = otherUser?.avatar ? pb.files.getURL(otherUser, otherUser.avatar) : '/placeholder-avatar.png';
+    const listingImageUrl = listing?.main_image ? pb.files.getURL(listing, listing.main_image) : '/placeholder.png';
+    const listingPrice = listing?.price ?? -1;
+    const offerPrice = conversation?.offerPrice ?? conversation?.initial_offer ?? null;
+    const saleStatus =
+    localSaleStatus ||
+    (conversation?.last_message === "Seller has confirmed the purchase." ? "confirmed" : null);
+    const canFinalizeSale = !isBuyer && !!listing && !saleStatus;
+
+    // check if buyer already submitted a review 
+    useEffect(() => {
+        const checkExistingReview = async () => {
+            if (!conversationId || !currentUserId || !isBuyer || saleStatus !== 'confirmed') {
+                setHasReviewed(false);
+                return;
+            }
+
+            try {
+                const existing = await pb.collection('ratings').getFullList({
+                    filter: `buyer="${currentUserId}"`,
+                });
+
+                setHasReviewed(existing.length > 0);
+            } catch (error) {
+                console.error('Failed to check review status:', error);
+            }
+        };
+
+        checkExistingReview();
+    }, [conversationId, currentUserId, isBuyer, saleStatus]);
+
+
+    // buyer submits a rating after sale is confirmed
+
+    const handleSubmitRating = useCallback(async () => {
+    if (!conversation || !currentUserId || !isBuyer || selectedRating === 0) return;
+
+    try {
+        setSubmittingRating(true);
+        setRatingError('');
+
+        await pb.collection('ratings').create({
+            buyer: currentUserId,
+            seller: conversation.seller,
+            listing: conversation.listing,
+            rating: selectedRating,
+        });
+
+        // recalculate seller average rating
+        const sellerReviews = await pb.collection('ratings').getFullList({
+            filter: `seller="${conversation.seller}"`,
+        });
+
+        const average =
+            sellerReviews.reduce((sum, review) => sum + Number(review.rating), 0) /
+            sellerReviews.length;
+
+       // await pb.collection('users').update(conversation.seller, {
+         //   rating: average,
+        //});
+
+        setHasReviewed(true);
+    } catch (err: any) {
+        console.error("Submit rating error:", err);
+        console.error("Submit rating error data:", err?.response?.data);
+        setRatingError(err?.message || 'Failed to submit rating.');
+    } finally {
+        setSubmittingRating(false);
+    }
+}, [conversation, currentUserId, isBuyer, selectedRating]);
+
     if (!currentUserId) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -185,17 +258,7 @@ export default function ConversationPage() {
                 <p className="text-red-500">{error}</p>
             </div>
         );
-    }
-
-    const isBuyer = conversation?.buyer === currentUserId;
-    const otherUser = isBuyer ? conversation?.expand?.seller : conversation?.expand?.buyer;
-    const listing = conversation?.expand?.listing;
-    const otherAvatarUrl = otherUser?.avatar ? pb.files.getURL(otherUser, otherUser.avatar) : '/placeholder-avatar.png';
-    const listingImageUrl = listing?.main_image ? pb.files.getURL(listing, listing.main_image) : '/placeholder.png';
-    const listingPrice = listing?.price ?? -1;
-    const offerPrice = conversation?.offerPrice ?? conversation?.initial_offer ?? null;
-    const saleStatus = localSaleStatus;
-    const canFinalizeSale = !isBuyer && !!listing && !saleStatus;
+    } 
 
     const handleSend = async () => {
         if (!newMessage.trim()) return;
@@ -211,6 +274,7 @@ export default function ConversationPage() {
         }
     };
     console.log(`isBuyer: ${isBuyer}, listingPrice: ${listingPrice}, offerPrice: ${offerPrice}`)
+    console.log("FULL CONVERSATION:", conversation);
     return (
         <div className="min-h-screen bg-gray-100 flex items-start justify-center p-4 pt-8">
             <div className="w-full max-w-lg bg-white rounded-2xl shadow-lg flex flex-col overflow-hidden" style={{ height: 'min(80vh, 700px)' }}>
@@ -308,6 +372,53 @@ export default function ConversationPage() {
                                 </div>
                                 {finalizationError && (
                                     <p className="text-red-500 text-xs">{finalizationError}</p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+
+                {/* Buyer rating area, only shows after confirmed sale */}
+                {isBuyer && saleStatus === 'confirmed' && (
+                    <div className="px-5 py-4 border-b border-gray-100 bg-white">
+                        {hasReviewed ? (
+                            <p className="text-sm text-emerald-600 font-medium">
+                                Thank you! Your rating has been submitted.
+                            </p>
+                        ) : (
+                            <div className="flex flex-col gap-3">
+                                {/* Small instruction */}
+                                <p className="text-sm text-gray-600">Rate this seller</p>
+
+                                {/* Clickable stars */}
+                                <div className="flex gap-2">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <button
+                                            key={star}
+                                            type="button"
+                                            onClick={() => setSelectedRating(star)}
+                                            className={`text-2xl transition ${
+                                                star <= selectedRating ? 'text-yellow-400' : 'text-gray-300'
+                                            }`}
+                                        >
+                                            ★
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Submit button */}
+                                <PillButton
+                                    type="button"
+                                    onClick={handleSubmitRating}
+                                    disabled={submittingRating || selectedRating === 0}
+                                    className="w-fit"
+                                >
+                                    {submittingRating ? 'Submitting...' : 'Submit Rating'}
+                                </PillButton>
+
+                                {ratingError && (
+                                    <p className="text-red-500 text-xs">{ratingError}</p>
                                 )}
                             </div>
                         )}
