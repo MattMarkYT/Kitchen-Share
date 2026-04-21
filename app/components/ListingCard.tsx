@@ -15,7 +15,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
     const [favoriteRecordId, setFavoriteRecordId] = useState<string | null>(null);
 
     const copyLinkToast = () => toast.success("Link Copied!");
-    const copyLinkFailedToast = () => toast.success("Failed to copy link!");
+    const copyLinkFailedToast = () => toast.error("Failed to copy link!");
 
     const imgUrl =
         pb.files.getURL(listing, listing.main_image as string, { thumb: "640x480" }) ||
