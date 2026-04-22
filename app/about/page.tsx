@@ -87,16 +87,16 @@ export default function About() {
                     food together!
                 </p>
 
-                <div className={"flex flex-col md:flex-col lg:flex-row items-center justify-center mb-5 md:mb-30 w-full md:gap-6 lg:gap-14"}>
+                <div className={"flex flex-col md:flex-col lg:flex-row items-center justify-center mb-5 md:mb-30 md:gap-6 xl:gap-14"}>
                     <Image
                         src={Bgb}
                         alt={"African American man holding barbecue ribs"}
-                        className={"image1 max h-[375px] sm:h-[450px] lg:h-[550px] w-[375px] sm:w-[450px] lg:w-[600px] rounded-4xl object-cover mb-8"}/>
-                    <div className={"mx-auto min-w-full md:min-w-2xl px-1"}>
+                        className={"image1 max h-[350px] md:h-[450px] xl:h-[550px] w-[375px] md:w-[475px] xl:w-[600px] rounded-4xl object-cover mb-8"}/>
+                    <div className={"mx-auto min-w-full lg:min-w-xl xl:min-w-2xl px-1"}>
                         <h2 className="split1 text-4xl md:text-5xl lg:text-6xl text-center font-semibold text-stone-900 mb-6 lg:mb-20">
                             How It Works
                         </h2>
-                        <p className={`split1_2 text-xl md:text-2xl lg:text-3xl text-center lg:text-right text-stone-600 leading-relaxed mb-8`}>
+                        <p className={`split1_2 text-xl md:text-2xl xl:text-3xl text-center lg:text-right text-stone-600 leading-relaxed mb-8`}>
                             At Neighborhood Eats, neighbors post meals they have cooked and are
                             willing to share with others. You can browse through available meals
                             in your area, connect with the cook, and arrange a pickup or delivery.
