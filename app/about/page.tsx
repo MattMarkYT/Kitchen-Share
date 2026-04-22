@@ -63,7 +63,7 @@ export default function About() {
     },[]);
 
     return (
-        <main className="min-h-screen bg-background font-sans relative overflow-hidden">
+        <main className="min-h-screen bg-background font-sans relative overflow-hidden pb-20 md:pb-0">
             <div className={"flex-col relative flex items-center justify-center w-full h-[300px] sm:h-[375px] lg:h-[450px]"}>
                 <span className={"bigText relative opacity-100 text-background font-bold text-6xl sm:text-7xl lg:text-8xl z-20"}>About Us</span>
                 <span className={"bigText relative opacity-100 text-amber-400 text-center font-semibold text-5xl sm:text-6xl lg:text-7xl z-20"}>From Neighbor to Neighbor</span>
@@ -75,43 +75,43 @@ export default function About() {
             </div>
             <div className="mx-auto max-w-7xl py-11 sm:py-15 lg:py-25 px-4 lg:px-10">
 
-                <p className="splitIntro sm:text-xl lg:text-3xl text-center text-stone-600 leading-relaxed mb-8">
+                <p className="splitIntro sm:text-xl md:text-2xl lg:text-3xl text-center text-stone-600 leading-relaxed mb-8">
                     Welcome to Neighborhood Eats! We are passionate about connecting people
                     through the love of food. Whether you&apos;re a seasoned chef or just
                     starting out in the kitchen, our platform provides a space for
                     everyone to share their delicious dishes and connect with fellow
                     food enthusiasts.
                 </p>
-                <p className="splitIntro sm:text-xl lg:text-3xl text-center text-stone-600 leading-relaxed mb-25">
+                <p className="splitIntro sm:text-xl md:text-2xl lg:text-3xl text-center text-stone-600 leading-relaxed mb-15 md:mb-25">
                     Join us on this journey and let&apos;s share the joy of
                     food together!
                 </p>
 
-                <div className={"flex flex-col sm:flex-row items-center justify-center mb-30"}>
+                <div className={"flex flex-col md:flex-col lg:flex-row items-center justify-center mb-5 md:mb-30 w-full md:gap-6 lg:gap-14"}>
                     <Image
                         src={Bgb}
                         alt={"African American man holding barbecue ribs"}
-                        className={"image1 mr-16 max h-[375px] sm:h-[450px] lg:h-[550px] w-[375px] sm:w-[450px] lg:w-[600px] rounded-4xl object-cover mb-8"}/>
-                    <div className={"mx-auto min-w-2xl px-1"}>
-                        <h2 className="split1 text-6xl text-center font-semibold text-stone-900 mb-20">
+                        className={"image1 max h-[375px] sm:h-[450px] lg:h-[550px] w-[375px] sm:w-[450px] lg:w-[600px] rounded-4xl object-cover mb-8"}/>
+                    <div className={"mx-auto min-w-full md:min-w-2xl px-1"}>
+                        <h2 className="split1 text-4xl md:text-5xl lg:text-6xl text-center font-semibold text-stone-900 mb-6 lg:mb-20">
                             How It Works
                         </h2>
-                        <p className="split1_2 text-3xl text-right text-stone-600 leading-relaxed mb-8">
+                        <p className={`split1_2 text-xl md:text-2xl lg:text-3xl text-center lg:text-right text-stone-600 leading-relaxed mb-8`}>
                             At Neighborhood Eats, neighbors post meals they have cooked and are
                             willing to share with others. You can browse through available meals
                             in your area, connect with the cook, and arrange a pickup or delivery.
                         </p>
                     </div>
-                    <div className="trigger1 mt-80">
-                        <div className="w-1 h-1 opacity-0"></div>
+                    <div className="relative">
+                        <div className="trigger1 absolute -top-32 lg:top-55"></div>
                     </div>
                 </div>
-                <div className={"flex flex-col sm:flex-row items-center justify-center"}>
-                    <div className={"mx-auto min-w-2xl px-1"}>
-                        <h2 className="split2 text-6xl text-center font-semibold text-stone-900 mb-20">
+                <div className={"relative flex flex-col md:flex-col lg:flex-row items-center justify-center md:gap-6 lg:gap-14"}>
+                    <div className={"mx-auto min-w-full md:min-w-2xl px-1"}>
+                        <h2 className="split2 text-4xl md:text-5xl lg:text-6xl text-center font-semibold text-stone-900 mb-6 lg:mb-20">
                             Our Mission
                         </h2>
-                        <p className="split2_2 text-3xl text-left text-stone-600 leading-relaxed mb-8">
+                        <p className="split2_2 text-xl md:text-2xl lg:text-3xl text-center lg:text-left text-stone-600 leading-relaxed mb-8">
                             Our mission is to build a world where food brings people together.
                             We strive to create a platform that not only allows individuals to
                             share their culinary creations but also fosters a sense of community
@@ -123,9 +123,9 @@ export default function About() {
                     <Image
                         src={sv}
                         alt={"Hispanic street vendor in Los Angeles"}
-                        className={"image2 ml-20 max h-[375px] sm:h-[450px] lg:h-[550px] w-[375px] sm:w-[450px] lg:w-[600px] rounded-4xl object-cover mb-8"}/>
-                    <div className="trigger2 mt-80">
-                        <div className="w-1 h-1 opacity-0"></div>
+                        className={"image2 order-first lg:order-0 max h-[375px] sm:h-[450px] lg:h-[550px] w-[375px] sm:w-[450px] lg:w-[600px] rounded-4xl object-cover mb-8"}/>
+                    <div className="relative">
+                        <div className="trigger2 absolute -top-50 lg:top-60"></div>
                     </div>
                 </div>
             </div>
