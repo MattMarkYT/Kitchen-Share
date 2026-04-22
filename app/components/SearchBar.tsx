@@ -11,12 +11,15 @@ import { Search, UserRoundSearch, MapPinSearch } from "lucide-react";
 import {useSearch} from "@/app/hooks/useSearch";
 import Link from "next/link";
 import {sortListings} from "@/app/api/search";
+import {useIsMobile} from "@/app/hooks/useIsMobile";
 
 export default function SearchBar() {
     const [query, setQuery] = useState("");
     const [liveInput, setLiveInput] = useState("");
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [isFocused, setIsFocused] = useState(false);
+
+    const isMobile = useIsMobile();
 
     const router = useRouter();
     const inputRef = useRef<HTMLInputElement>(null);
@@ -87,7 +90,7 @@ export default function SearchBar() {
             </Form>
 
             {isFocused && liveInput && (
-                <ul className="absolute left-0 right-0 z-30 mt-2 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl">
+                <ul className={`absolute left-0 right-0 z-30 ${isMobile ? "bottom-full mb-2" : "top-full mt-2"} overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl`}>
 
                     { /* Search Suggestions */}
                     { /* Food */}
