@@ -90,7 +90,7 @@ export default function Navbar() {
     return (
         <header className={`${isMobile ? "fixed w-full bottom-0" : "sticky top-0"} z-50 border-b border-t border-stone-300 bg-white/90 backdrop-blur-md`}>
             {!isMobile ?
-                <nav className="mx-auto flex flex-wrap items-center justify-between w-full gap-4 px-5 py-4 md:px-8">
+                <nav className="mx-auto xl:max-w-5/6 flex flex-wrap items-center justify-between w-full gap-4 px-5 py-4 md:px-8">
                     <Link
                         href="/"
                         className="shrink-0 transition-opacity hover:opacity-80"
