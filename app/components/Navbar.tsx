@@ -11,6 +11,7 @@ import PillButton from "@/app/components/PillButton";
 import {setAuthRedirect} from "@/app/api/authRedirect";
 import IconButton from "@/app/components/IconButton";
 import {useIsMobile} from "@/app/hooks/useIsMobile";
+import {useIsLogin} from "@/app/providers/LoginProvider";
 
 type UserRecord = {
     id: string;
@@ -23,6 +24,7 @@ export default function Navbar() {
     const router = useRouter();
     const currentUserId = useCurrentUser();
     const isMobile = useIsMobile();
+    const {setIsOnLogin} = useIsLogin();
 
     const [user, setUser] = useState<UserRecord | null>(null);
     const [menuOpen, setMenuOpen] = useState(false);
@@ -178,13 +180,9 @@ export default function Navbar() {
                                 </div>
                             </>
                         ) : (
-                            <>
-                                <Link onClick={setAuthRedirect} href={`/auth`}>
-                                    <PillButton>
-                                        Log in
-                                    </PillButton>
-                                </Link>
-                            </>
+                            <PillButton onClick={()=> setIsOnLogin(true)}>
+                                Log in
+                            </PillButton>
                         )}
                     </div>
 
