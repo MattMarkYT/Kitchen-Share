@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import PillButton from '../../components/PillButton';
 import { ClientResponseError } from "pocketbase";
-import { useCurrentUser, useProfile, useStartConversation } from '../../hooks';
+import { useCurrentUser, useProfile, useStartConversation, useBlock } from '../../hooks';
 import type { RecordModel } from 'pocketbase';
 import usLocations from '../../lib/us-locations.json';
 import { pbuser } from '@/app/types/pbuser';
@@ -206,6 +206,7 @@ export default function ProfilePage() {
     const isOwnProfile = currentUserId === profileId;
     const isSetupMode = isOwnProfile && profileUser && !profileUser.profileSetup;
     const { startConversation: handleMessage, loading: messagingLoading, error: messagingError } = useStartConversation(profileId);
+    const { isBlocked, loading: blockLoading, toggling, toggle: toggleBlock, error: blockError } = useBlock(profileId);
     const [isEditing, setIsEditing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -419,7 +420,7 @@ export default function ProfilePage() {
                             </div>
                         )}
 
-                        {(error || messagingError) && <p className="text-red-500 text-sm">{error || messagingError}</p>}
+                        {(error || messagingError || blockError) && <p className="text-red-500 text-sm">{error || messagingError || blockError}</p>}
 
                         {/* actions */}
                         <div className="flex gap-2.5">
@@ -437,9 +438,18 @@ export default function ProfilePage() {
                             ) : isOwnProfile ? (
                                 <PillButton type="button" onClick={() => setIsEditing(true)} className="w-full">Edit Profile</PillButton>
                             ) : (
-                                <PillButton type="button" onClick={() => handleMessage()} disabled={messagingLoading} className="w-full">
-                                    {messagingLoading ? 'Opening...' : 'Message'}
-                                </PillButton>
+                                <>
+                                    {!isBlocked && (
+                                        <PillButton type="button" onClick={() => handleMessage()} disabled={messagingLoading} className="flex-1">
+                                            {messagingLoading ? 'Opening...' : 'Message'}
+                                        </PillButton>
+                                    )}
+                                    <PillButton type="button" onClick={toggleBlock} disabled={blockLoading || toggling} className={isBlocked ? 'w-full' : 'flex-none'}>
+                                        {toggling
+                                            ? (isBlocked ? 'Unblocking...' : 'Blocking...')
+                                            : (isBlocked ? 'Unblock User' : 'Block')}
+                                    </PillButton>
+                                </>
                             )}
                         </div>
                     </div>

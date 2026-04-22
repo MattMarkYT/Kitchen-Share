@@ -3,15 +3,19 @@
 import { Listing } from "@/app/types/listing";
 import pb from "@/app/lib/pb";
 import Link from "next/link";
-import { Heart, MapPin, Share2, Star } from "lucide-react";
+import {Check, Heart, MapPin, Share2, Star} from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useCurrentUser } from "@/app/hooks";
+import {toast} from "react-toastify";
 
 
 export function ListingCard({ listing }: { listing: Listing }) {
     const [copied, setCopied] = useState(false);
     const [isFavorite, setIsFavorite] = useState(false);
     const [favoriteRecordId, setFavoriteRecordId] = useState<string | null>(null);
+
+    const copyLinkToast = () => toast.success("Link Copied!");
+    const copyLinkFailedToast = () => toast.error("Failed to copy link!");
 
     const imgUrl =
         pb.files.getURL(listing, listing.main_image as string, { thumb: "640x480" }) ||
@@ -52,9 +56,11 @@ export function ListingCard({ listing }: { listing: Listing }) {
         const url = `${window.location.origin}/listing/${listing.id}`;
         try {
             await navigator.clipboard.writeText(url);
+            copyLinkToast();
             setCopied(true);
             window.setTimeout(() => setCopied(false), 2000);
         } catch (error) {
+            copyLinkFailedToast();
             console.error("Failed to copy listing link", error);
         }
     };
@@ -148,7 +154,11 @@ export function ListingCard({ listing }: { listing: Listing }) {
                                         }}
                                         className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-700 transition hover:bg-stone-50"
                                     >
-                                        <Share2 className="h-3 w-3" />
+                                        {copied ?
+                                            <Check className="h-3 w-3" />
+                                            :
+                                            <Share2 className="h-3 w-3" />
+                                        }
                                     </button>
                                 </div>
                             </div>

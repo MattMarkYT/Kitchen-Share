@@ -87,8 +87,8 @@ export default function Navbar() {
                 </Link>
 
                 <div className="hidden lg:flex items-center gap-6 ml-8 text-sm font-medium text-stone-600">
-                    <Link href="/" className="transition-colors hover:text-stone-900">
-                        Discover
+                    <Link href="/about" className="transition-colors hover:text-stone-900">
+                        About
                     </Link>
                     <Link href="/map" className="transition-colors hover:text-stone-900">
                         Map

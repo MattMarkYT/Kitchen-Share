@@ -4,6 +4,7 @@ import pb from '../lib/pb';
 import { useRouter, useSearchParams } from 'next/navigation';
 import PillButton from '../components/PillButton';
 import { ClientResponseError } from 'pocketbase';
+import {clearAuthRedirect, getAuthRedirect} from "@/app/api/authRedirect";
 
 const FormInput = ({ label, type, value, onChange }: { label: string, type: string, value: string, onChange: (e: ChangeEvent<HTMLInputElement>) => void }) => (
     <div>
@@ -19,9 +20,7 @@ const FormInput = ({ label, type, value, onChange }: { label: string, type: stri
 );
 
 export default function AuthPage() {
-    const searchParams = useSearchParams();
-    const previousPage = searchParams.get('previous');
-    const [isLogin, setIsLogin] = useState(previousPage !== null ? previousPage?.charAt(0) !== '!' : true);
+    const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [displayName, setDisplayName] = useState('');
     const [password, setPassword] = useState('');
@@ -47,7 +46,9 @@ export default function AuthPage() {
                 await pb.collection('users').authWithPassword(email, password);
             }
             const record = pb.authStore.model;
-            router.push(previousPage == null ? (!record?.profileSetup ? `/profile/${record?.id}` : '/') : `/${previousPage.slice(1)}`);
+            const previousPage = getAuthRedirect();
+            clearAuthRedirect();
+            router.push(previousPage == null ? (!record?.profileSetup ? `/profile/${record?.id}` : '/') : previousPage);
         } catch (err: any) {
             console.error(err);
 

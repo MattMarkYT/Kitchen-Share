@@ -4,11 +4,13 @@ import pb from "@/app/lib/pb";
 import React, { useEffect, useState } from "react";
 import { ListingCard } from "../components/ListingCard";
 import { useCurrentUser, useListings } from "@/app/hooks";
+import { useIsMobile } from "@/app/hooks/useIsMobile";
 import LocationPicker from "@/app/components/LocationPicker";
 import type { pbuser } from "@/app/types/pbuser";
 
 export default function Home() {
     const currentUserId = useCurrentUser();
+    const isMobile = useIsMobile(); 
     const [city, setCity] = useState("");
     const [state, setState] = useState("");
     const [userLoading, setUserLoading] = useState(true);
