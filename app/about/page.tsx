@@ -106,12 +106,12 @@ export default function About() {
                         <div className="trigger1 absolute -top-32 lg:top-55"></div>
                     </div>
                 </div>
-                <div className={"relative flex flex-col md:flex-col lg:flex-row items-center justify-center md:gap-6 lg:gap-14"}>
-                    <div className={"mx-auto min-w-full md:min-w-2xl px-1"}>
+                <div className={"relative flex flex-col md:flex-col lg:flex-row items-center justify-center md:gap-6 xl:gap-14"}>
+                    <div className={"mx-auto min-w-full lg:min-w-xl xl:min-w-2xl px-1"}>
                         <h2 className="split2 text-4xl md:text-5xl lg:text-6xl text-center font-semibold text-stone-900 mb-6 lg:mb-20">
                             Our Mission
                         </h2>
-                        <p className="split2_2 text-xl md:text-2xl lg:text-3xl text-center lg:text-left text-stone-600 leading-relaxed mb-8">
+                        <p className="split2_2 text-xl md:text-2xl xl:text-3xl text-center lg:text-left text-stone-600 leading-relaxed mb-8">
                             Our mission is to build a world where food brings people together.
                             We strive to create a platform that not only allows individuals to
                             share their culinary creations but also fosters a sense of community
@@ -123,7 +123,7 @@ export default function About() {
                     <Image
                         src={sv}
                         alt={"Hispanic street vendor in Los Angeles"}
-                        className={"image2 order-first lg:order-0 max h-[375px] sm:h-[450px] lg:h-[550px] w-[375px] sm:w-[450px] lg:w-[600px] rounded-4xl object-cover mb-8"}/>
+                        className={"image2 order-first lg:order-0 max h-[350px] md:h-[450px] xl:h-[550px] w-[375px] md:w-[475px] xl:w-[600px] rounded-4xl object-cover mb-8"}/>
                     <div className="relative">
                         <div className="trigger2 absolute -top-50 lg:top-60"></div>
                     </div>
