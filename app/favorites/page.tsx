@@ -6,6 +6,7 @@ import {useCurrentUser} from "@/app/hooks";
 import {useEffect} from "react";
 import { useRouter } from "next/navigation";
 import pb from "@/app/lib/pb";
+import {setAuthRedirect} from "@/app/api/authRedirect";
 
 export default function Favorites() {
     const userId = useCurrentUser();
@@ -14,7 +15,8 @@ export default function Favorites() {
 
     useEffect(() => {
         if (!pb.authStore.isValid) {
-            router.push("/auth?previous=@favorites");
+            setAuthRedirect();
+            router.push("/auth");
         }
     }, [userId, router]);
 

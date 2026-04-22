@@ -7,6 +7,7 @@ import {useCurrentUser} from "@/app/hooks";
 import PillButton from "@/app/components/PillButton";
 import InputField from "@/app/components/InputField";
 import { CATEGORIES } from "@/app/types/categories";
+import {setAuthRedirect} from "@/app/api/authRedirect";
 
 const ALLERGY_OPTIONS = ["Gluten", "Dairy", "Nuts", "Eggs", "Soy", "Shellfish", "Fish", "Wheat"];
 
@@ -39,7 +40,8 @@ export default function CreateListing() {
     const currentUserId = useCurrentUser();
     useEffect(() => {
         if (!pb.authStore.isValid) {
-            router.push("/auth?previous=@createlisting");
+            setAuthRedirect();
+            router.push("/auth");
         }
     }, [currentUserId, router]);
 
