@@ -7,9 +7,10 @@ interface UseListingsOptions {
     state: string;
     enabled?: boolean;
     excludeSeller?: string | null;
+    category?: string | null;
 }
 
-export function useListings({ city, state, enabled = true, excludeSeller }: UseListingsOptions) {
+export function useListings({ city, state, enabled = true, excludeSeller, category }: UseListingsOptions) {
     const [listings, setListings] = useState<Listing[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
@@ -31,6 +32,9 @@ export function useListings({ city, state, enabled = true, excludeSeller }: UseL
             if (excludeSeller) {
                 filterParts.push(`seller != "${excludeSeller}"`);
             }
+            if (category) {
+                filterParts.push(`category = "${category}"`);
+            }
 
             const filter = filterParts.length > 0 ? filterParts.join(" && ") : "";
 
@@ -46,7 +50,7 @@ export function useListings({ city, state, enabled = true, excludeSeller }: UseL
         } finally {
             setLoading(false);
         }
-    }, [city, state, enabled, excludeSeller]);
+    }, [city, state, enabled, excludeSeller, category]);
 
     useEffect(() => {
         if (enabled) {

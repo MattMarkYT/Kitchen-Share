@@ -7,6 +7,7 @@ import { useCurrentUser, useListings } from "@/app/hooks";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 import LocationPicker from "@/app/components/LocationPicker";
 import type { pbuser } from "@/app/types/pbuser";
+import { CATEGORY_OPTIONS } from "@/app/types/categories";
 
 export default function Home() {
     const currentUserId = useCurrentUser();
@@ -14,6 +15,7 @@ export default function Home() {
     const [city, setCity] = useState("");
     const [state, setState] = useState("");
     const [userLoading, setUserLoading] = useState(true);
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
     // load the logged-in user's city/state as default location
     useEffect(() => {
@@ -38,7 +40,7 @@ export default function Home() {
         return () => { cancelled = true; };
     }, [currentUserId]);
 
-    const { listings, loading, error } = useListings({ city, state, enabled: !userLoading, excludeSeller: currentUserId });
+    const { listings, loading, error } = useListings({ city, state, enabled: !userLoading, excludeSeller: currentUserId, category: selectedCategory });
 
     function handleLocationChange(newCity: string, newState: string) {
         setCity(newCity);
@@ -57,7 +59,7 @@ export default function Home() {
         <main className="min-h-screen bg-white font-sans relative overflow-hidden">
             <div className="mx-auto max-w-7xl px-6 py-10 sm:px-8 lg:px-10">
                 {/* header row with title + location picker */}
-                <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <h1 className="text-4xl font-bold tracking-tight text-stone-900 sm:text-5xl">
                         {city ? `Food in ${city}` : "Food Near You"}
                     </h1>
@@ -66,6 +68,33 @@ export default function Home() {
                         state={state}
                         onLocationChange={handleLocationChange}
                     />
+                </div>
+
+                {/* category filter bar */}
+                <div className="mb-8 flex flex-wrap gap-2">
+                    <button
+                        onClick={() => setSelectedCategory(null)}
+                        className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                            selectedCategory === null
+                                ? "bg-stone-900 text-white"
+                                : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+                        }`}
+                    >
+                        All
+                    </button>
+                    {CATEGORY_OPTIONS.map(({ value, label }) => (
+                        <button
+                            key={value}
+                            onClick={() => setSelectedCategory(selectedCategory === value ? null : value)}
+                            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                                selectedCategory === value
+                                    ? "bg-stone-900 text-white"
+                                    : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+                            }`}
+                        >
+                            {label}
+                        </button>
+                    ))}
                 </div>
 
                 {/* error state */}
