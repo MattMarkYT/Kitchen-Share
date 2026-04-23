@@ -1,9 +1,7 @@
 "use client"
 
 import {ChangeEvent, FormEvent, useState} from "react";
-import {useRouter} from "next/navigation";
 import pb from "@/app/lib/pb";
-import {clearAuthRedirect, getAuthRedirect} from "@/app/api/authRedirect";
 import PillButton from "@/app/components/PillButton";
 import {ClientResponseError} from "pocketbase";
 import {useIsLogin} from "@/app/providers/LoginProvider";
@@ -31,8 +29,6 @@ export default function ModalLogin() {
 
     const {isOnLogin, setIsOnLogin} = useIsLogin();
 
-    const router = useRouter();
-
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setError('');
@@ -48,12 +44,14 @@ export default function ModalLogin() {
                 await pb.collection('users').create({ email, displayName, password, passwordConfirm });
                 await pb.collection('users').authWithPassword(email, password);
             }
-            const record = pb.authStore.model;
-            const previousPage = getAuthRedirect();
-            clearAuthRedirect();
-            router.push(previousPage == null ? (!record?.profileSetup ? `/profile/${record?.id}` : '/') : previousPage);
+            setEmail("");
+            setDisplayName("");
+            setPassword("");
+            setPasswordConfirm("");
+            setIsOnLogin(false);
         } catch (err: any) {
             console.error(err);
+            if (isLogin) setPassword("");
 
             if (err instanceof ClientResponseError && err.response?.data) {
                 const firstError = Object.values(err.response.data)[0] as any;
