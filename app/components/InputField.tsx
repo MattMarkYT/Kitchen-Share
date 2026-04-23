@@ -1,11 +1,13 @@
 import React from "react";
 
+type SelectOption = string | { value: string; label: string };
+
 type FormInputProps = {
     label: string;
     error?: string;
     optional?: boolean;
     fieldType?: "textS" | "textL" | "selection";
-    selectOptions?: string[];
+    selectOptions?: SelectOption[];
     selectPlaceholder?: string;
 } & React.InputHTMLAttributes<HTMLInputElement>
     & React.TextareaHTMLAttributes<HTMLTextAreaElement>
@@ -62,7 +64,11 @@ export default function InputField({
                             : regularColor
                     }`}>
                     <option value="">{selectPlaceholder}</option>
-                    {selectOptions == undefined ? null : selectOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                    {selectOptions == undefined ? null : selectOptions.map(c => {
+                        const val = typeof c === "string" ? c : c.value;
+                        const lbl = typeof c === "string" ? c : c.label;
+                        return <option key={val} value={val}>{lbl}</option>;
+                    })}
 
                 </select>
             : null}

@@ -8,6 +8,7 @@ export interface Listing extends RecordModel {
     main_image?: string;
     images?: string[];
     description?: string;
+    category?: string;
     tags?: string;
     created: string;
     seller: string;

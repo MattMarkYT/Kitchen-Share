@@ -2,11 +2,12 @@
 import { useState, useRef, useEffect } from "react";
 import styles from "./create.module.css";
 import pb from "@/app/lib/pb";
+import { ClientResponseError } from "pocketbase";
 import { useRouter } from "next/navigation";
 import {useCurrentUser} from "@/app/hooks";
 import PillButton from "@/app/components/PillButton";
 import InputField from "@/app/components/InputField";
-import { CATEGORIES } from "@/app/types/categories";
+import { CATEGORY_OPTIONS } from "@/app/types/categories";
 import {setAuthRedirect} from "@/app/api/authRedirect";
 
 const ALLERGY_OPTIONS = ["Gluten", "Dairy", "Nuts", "Eggs", "Soy", "Shellfish", "Fish", "Wheat"];
@@ -16,7 +17,7 @@ type Errors = {
     price?: string;
     location?: string;
     images?: string;
-    tags?: string;
+    category?: string;
 };
 
 export default function CreateListing() {
@@ -27,11 +28,12 @@ export default function CreateListing() {
     const [price, setPrice] = useState("");
     const [title, setTitle] = useState("");
     const [location, setLocation] = useState("");
-    const [tags, setTags] = useState("");
+    const [category, setCategory] = useState("");
     const [additionalTags, setAdditionalTags] = useState("");
     const [description, setDescription] = useState("");
     const [allergies, setAllergies] = useState<string[]>([]);
     const [errors, setErrors] = useState<Errors>({});
+    const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -77,7 +79,7 @@ export default function CreateListing() {
         if (!title.trim()) newErrors.title = "Title is required";
         if (!price || isNaN(Number(price)) || Number(price) < 0) newErrors.price = "Valid price is required";
         if (!location.trim()) newErrors.location = "Location is required";
-        if (!tags.trim()) newErrors.tags = "Category is required";
+        if (!category.trim()) newErrors.category = "Category is required";
         if (images.length === 0) newErrors.images = "Please upload at least one photo";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -87,15 +89,18 @@ export default function CreateListing() {
         if (!validate()) return;
 
         setSubmitting(true);
+        setSubmitError(null);
         try {
             const data = new FormData();
             data.append("title", title.trim());
             data.append("price", price);
             data.append("location", location.trim());
-            data.append("tags", tags.trim().concat(" " + additionalTags));
+            data.append("category", category);
+            data.append("tags", additionalTags.trim());
             data.append("description", description.trim());
             data.append("allergies", !allergies.length ? "None" : allergies.join(", "));
             data.append("seller", pb.authStore.record?.id ?? "");
+            data.append("is_available", "true");
 
             // First image → main_image, rest → images
             data.append("main_image", images[0]);
@@ -107,10 +112,13 @@ export default function CreateListing() {
             router.push("/");
         } catch (err) {
             console.error(err);
-            if (err == "ClientResponseError 400: Failed to create record."){
-                alert("Your input is invalid and wasn't accepted by our server.");
+            if (err instanceof ClientResponseError && err.response?.data) {
+                const [field, value] = Object.entries(err.response.data)[0] as [string, { message?: string }];
+                const message = value?.message ?? String(value);
+                setSubmitError(`${field}: ${message}`);
+            } else {
+                setSubmitError("An unexpected error occurred. Please try again.");
             }
-            else alert("An unexpected error occurred: \n" + err);
         } finally {
             setSubmitting(false);
         }
@@ -183,8 +191,8 @@ export default function CreateListing() {
                             rows={4}
                 />
 
-                <InputField label="Category" fieldType="selection" selectOptions={CATEGORIES} selectPlaceholder="Select a category" error={errors.tags}
-                            onChange={e => setTags(e.target.value)}
+                <InputField label="Category" fieldType="selection" selectOptions={CATEGORY_OPTIONS} selectPlaceholder="Select a category" error={errors.category}
+                            onChange={e => setCategory(e.target.value)}
                 />
                 <InputField label="Tags" fieldType="textL" optional={true}
                             placeholder="Add some tags to help buyers find your food... (separate with spaces)"
@@ -212,6 +220,9 @@ export default function CreateListing() {
                 </div>
 
                 {/* Submit */}
+                {submitError && (
+                    <p className="text-sm text-red-600 mb-3">{submitError}</p>
+                )}
                 <PillButton
                     className="w-full top-4 p-3.5"
                     onClick={handleSubmit}
