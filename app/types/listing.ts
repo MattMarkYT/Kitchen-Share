@@ -5,10 +5,10 @@ export interface Listing extends RecordModel {
     title: string;
     price: number;
     location?: string;
-    main_image?: string;
+    main_image: string;
     images?: string[];
     description?: string;
-    category?: string;
+    category: string;
     tags?: string;
     created: string;
     seller: string;
