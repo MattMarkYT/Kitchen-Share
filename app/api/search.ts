@@ -2,13 +2,33 @@ import {useEffect, useState} from "react";
 import pb from "@/app/lib/pb";
 import {Listing} from "@/app/types/listing";
 import {pbuser} from "@/app/types/pbuser";
+import { getBlockedUserIds, getBlockedByUserIds } from "@/app/lib/blockUtils";
 
 const LISTINGS_PER_PAGE = 30;
 
 export async function searchListings(query: string, page: number) {
     const searchFilter = createFilter(query, ["title", "tags"]);
+    
+    // Get blocked user IDs and filter them out
+    const currentUserId = pb.authStore.record?.id ?? null;
+    const blockedUserIds = await getBlockedUserIds(currentUserId);
+    const blockedByUserIds = await getBlockedByUserIds(currentUserId);
+    // Combine both lists - exclude both blocked users AND users who blocked current user
+    const allExcludedIds = [...blockedUserIds, ...blockedByUserIds];
+    
+    let filterParts: string[] = [];
+    if (searchFilter) {
+        filterParts.push(searchFilter as string);
+    }
+    if (allExcludedIds.length > 0) {
+        const blockedFilter = allExcludedIds.map(id => `seller != "${id}"`).join(" && ");
+        filterParts.push(blockedFilter);
+    }
+    
+    const combinedFilter = filterParts.length > 0 ? filterParts.join(" && ") : "";
+    
     const results = await pb.collection("listings").getList<Listing>(page, LISTINGS_PER_PAGE, {
-        filter: searchFilter as string,
+        filter: combinedFilter as string,
     });
     return Array.from(results.items)
 }

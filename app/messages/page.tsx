@@ -5,11 +5,34 @@ import type { RecordModel } from 'pocketbase';
 import { useCurrentUser, useConversations } from '../hooks';
 import pb from '../lib/pb';
 import { formatRelativeTime } from '../lib/formatTime';
+import { getBlockedUserIds, getBlockedByUserIds } from '../lib/blockUtils';
 import Link from "next/link";
+import { useEffect, useState } from 'react';
 
 export default function MessagesPage() {
     const currentUserId = useCurrentUser();
     const { conversations, loading } = useConversations(currentUserId);
+    const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
+    const [blockedByUserIds, setBlockedByUserIds] = useState<string[]>([]);
+
+    // Get list of blocked users and users who blocked current user
+    useEffect(() => {
+        if (!currentUserId) return;
+        
+        Promise.all([
+            getBlockedUserIds(currentUserId),
+            getBlockedByUserIds(currentUserId)
+        ]).then(([blocked, blockedBy]) => {
+            setBlockedUserIds(blocked);
+            setBlockedByUserIds(blockedBy);
+        });
+    }, [currentUserId]);
+
+    // Filter out conversations with blocked users AND users who blocked current user
+    const visibleConversations = conversations.filter(convo => {
+        const otherUserId = convo.buyer === currentUserId ? convo.seller : convo.buyer;
+        return !blockedUserIds.includes(otherUserId) && !blockedByUserIds.includes(otherUserId);
+    });
 
     if (!currentUserId) {
         return (
@@ -48,13 +71,13 @@ export default function MessagesPage() {
                     <h1 className="text-2xl font-bold text-gray-800">Messages</h1>
                 </div>
 
-                {conversations.length === 0 ? (
+                {visibleConversations.length === 0 ? (
                     <div className="bg-white rounded-xl shadow-md p-8 text-center">
                         <p className="text-gray-500">No conversations yet.</p>
                     </div>
                 ) : (
                     <div className="bg-white rounded-xl shadow-md divide-y divide-gray-100 overflow-hidden">
-                        {conversations.map((convo) => {
+                        {visibleConversations.map((convo) => {
                             const otherUser = getOtherUser(convo);
                             const avatarUrl = getAvatarUrl(otherUser);
                             const listing = convo.expand?.listing;

@@ -6,6 +6,7 @@ import { useCurrentUser, useConversation } from '../../hooks';
 import PillButton from '../../components/PillButton';
 import pb from '../../lib/pb';
 import { getDateKey, formatTime, formatDateSeparator } from '../../lib/formatTime';
+import { hasBlocked, isBlockedBy } from '@/app/lib/blockUtils';
 
 export default function ConversationPage() {
     const router = useRouter();
@@ -28,6 +29,7 @@ export default function ConversationPage() {
     const [finalizing, setFinalizing] = useState(false);
     const [finalizationError, setFinalizationError] = useState('');
     const [localSaleStatus, setLocalSaleStatus] = useState<string | null>(null);
+    const [isBlocked, setIsBlocked] = useState(false);
 
     // Rating state
     const [selectedRating, setSelectedRating] = useState(0);
@@ -38,6 +40,36 @@ export default function ConversationPage() {
     useEffect(() => {
         setLocalSaleStatus(null);
     }, [conversation]);
+
+    // Show "unavailable" page if the other user is blocked OR has blocked current user
+    useEffect(() => {
+        if (!currentUserId || !conversation) return;
+        
+        const otherUserId = conversation.buyer === currentUserId 
+            ? conversation.seller 
+            : conversation.buyer;
+        
+        const checkBlocked = async () => {
+            const blocked = await hasBlocked(currentUserId, otherUserId);
+            const blockedBy = await isBlockedBy(currentUserId, otherUserId);
+            if (blocked || blockedBy) {
+                setIsBlocked(true);
+            }
+        };
+        checkBlocked();
+    }, [currentUserId, conversation]);
+
+    // Show unavailable page if blocked
+    if (isBlocked) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-100">
+                <div className="text-center">
+                    <h1 className="text-2xl font-bold text-gray-800 mb-4">Conversation Unavailable</h1>
+                    <p className="text-gray-600">This conversation is not available.</p>
+                </div>
+            </div>
+        );
+    }
 
     const handleFinalizeSale = useCallback(async (status: 'confirmed' | 'cancelled') => {
     if (!conversationId || !currentUserId) return;

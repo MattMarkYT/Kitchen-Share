@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import PillButton from "@/app/components/PillButton"
 import InputField from "@/app/components/InputField"
 import { useStartConversation } from "../../hooks";
+import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+import { hasBlocked, isBlockedBy } from "@/app/lib/blockUtils";
 
 type Listing = {
     title: string;
@@ -29,12 +31,14 @@ type Seller = {
 export default function ItemPage() {
     const id = useParams().id as string;
     const router = useRouter();
+    const currentUserId = useCurrentUser();
     const [listing, setListing] = useState<Listing | null>(null);
     const [seller, setSeller] = useState<Seller | null>(null);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [showOfferModal, setShowOfferModal] = useState(false);
     const [offerAmount, setOfferAmount] = useState('');
     const [offerError, setOfferError] = useState<string | undefined>(undefined);
+    const [isBlocked, setIsBlocked] = useState(false);
     const { startConversation, loading: messagingLoading } = useStartConversation(seller?.id || '');
 
     const renderStars = (rating: number) => {
@@ -58,6 +62,33 @@ export default function ItemPage() {
         };
         fetchData();
     }, [id]);
+
+    // Show "unavailable" page if the listing seller has blocked current user
+    useEffect(() => {
+        if (!seller || !currentUserId) return;
+        
+        const checkBlocked = async () => {
+            const blockedBy = await isBlockedBy(currentUserId, seller.id);
+            if (blockedBy) {
+                setIsBlocked(true);
+            }
+        };
+        checkBlocked();
+    }, [seller, currentUserId]);
+
+    // Show unavailable page if blocked
+    if (isBlocked) {
+        return (
+            <div className="min-h-screen bg-[#f5f5f7] p-4">
+            <div className="max-w-lg mx-auto pt-20">
+                <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.08)] px-7 py-12 text-center">
+                    <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Listing Unavailable</h1>
+                    <p className="text-sm text-gray-400 mt-2">This listing is not available.</p>
+                </div>
+            </div>
+        </div>
+        );
+    }
 
     const handleOpenOfferModal = () => {
         setOfferAmount('');

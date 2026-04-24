@@ -9,6 +9,7 @@ import { useCurrentUser, useProfile, useStartConversation, useBlock } from '../.
 import type { RecordModel } from 'pocketbase';
 import usLocations from '../../lib/us-locations.json';
 import { pbuser } from '@/app/types/pbuser';
+import { isBlockedBy } from '@/app/lib/blockUtils';
 
 
 const FormInput = ({ label, type = 'text', value, onChange, placeholder = '' }: { label: string, type?: string, value: string, onChange: (e: ChangeEvent<HTMLInputElement>) => void, placeholder?: string }) => (
@@ -216,6 +217,7 @@ export default function ProfilePage() {
     const avatarPreview = blobUrl || avatarUrl;
     const [listings, setListings] = useState<RecordModel[]>([]);
     const [listingsLoading, setListingsLoading] = useState(true);
+    const [isUnavailable, setIsUnavailable] = useState(false);
 
     const usStates = usLocations.states;
     const availableCities = useMemo(() =>
@@ -229,8 +231,32 @@ export default function ProfilePage() {
         };
     }, []);
 
-    // load listings for this profile (only active listings, even for own profile)
+    // Check whether this profile has blocked the current user.
     useEffect(() => {
+        let cancelled = false;
+
+        if (!currentUserId || isOwnProfile || loading) {
+            setIsUnavailable(false);
+            return;
+        }
+
+        const checkBlockedStatus = async () => {
+            const blockedByProfile = await isBlockedBy(currentUserId, profileId);
+            if (!cancelled) setIsUnavailable(blockedByProfile);
+        };
+
+        checkBlockedStatus();
+        return () => { cancelled = true; };
+    }, [currentUserId, profileId, isOwnProfile, loading]);
+
+    // Load listings only when the profile is available.
+    useEffect(() => {
+        if (isUnavailable) {
+            setListings([]);
+            setListingsLoading(false);
+            return;
+        }
+
         let cancelled = false;
         setListingsLoading(true);
         pb.collection('listings').getFullList({
@@ -244,7 +270,7 @@ export default function ProfilePage() {
             if (!cancelled) setListingsLoading(false);
         });
         return () => { cancelled = true; };
-    }, [profileId]);
+    }, [profileId, isUnavailable]);
 
     const handleFormChange = (field: string) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setFormData(prev => ({ ...prev, [field]: e.target.value }));
@@ -334,6 +360,18 @@ export default function ProfilePage() {
     };
 
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#f5f5f7]"><p className="text-gray-400 text-sm tracking-wide">Loading…</p></div>;
+
+    // Show unavailable page if blocked
+    if (isUnavailable) return (
+        <div className="min-h-screen bg-[#f5f5f7] p-4">
+            <div className="max-w-lg mx-auto pt-20">
+                <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.08)] px-7 py-12 text-center">
+                    <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Page unavailable</h1>
+                    <p className="text-sm text-gray-400 mt-2">This profile is unavailable.</p>
+                </div>
+            </div>
+        </div>
+    );
 
     return (
         <div className="min-h-screen bg-[#f5f5f7] p-4">
