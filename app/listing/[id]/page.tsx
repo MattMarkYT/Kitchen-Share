@@ -113,6 +113,13 @@ export default function ItemPage() {
 
     if (!listing) return <div>Loading...</div>;
     if (!seller) return <div>Loading...</div>;
+    //check if logged in user is the owner of the listing
+    const isOwner = listing.seller === currentUserId;
+    //temporary edit listing handler
+    const handleEditListing = () => {
+        console.log("Edit listing clicked");
+    };
+
 
     return (
         <div className="flex h-screen font-sans items-center justify-center bg-gray-100">
@@ -171,15 +178,41 @@ export default function ItemPage() {
                                 <p className="text-lg mt-1.25 m-0">Joined {new Date(seller.created).toLocaleDateString()}</p>
                             </div>
                         </div>
+
                         <div className="mt-5 flex gap-4">
-                            <PillButton type="button" onClick={() => startConversation(id, listing.price)} disabled={messagingLoading} className="w-full">
-                                {messagingLoading ? 'Opening...' : 'Buy'}
-                            </PillButton>
-                            <PillButton type="button" onClick={handleOpenOfferModal} disabled={messagingLoading} className="w-full">
-                                Make Offer
-                            </PillButton>
+                            {/* check if current user is the owner of the listing */}
+                            {isOwner ? (
+                                <PillButton
+                                type="button"
+                                onClick={handleEditListing}
+                                className="w-full"
+                                >
+                                    Edit Listing
+                                </PillButton>
+                            ) : (
+                                <>
+                                    {/* if not owner show purchase options */}
+                                    <PillButton
+                                        type="button"
+                                        onClick={() => startConversation(id, listing.price)}
+                                        disabled={messagingLoading}
+                                        className="w-full"
+                                    >
+                                        {messagingLoading ? 'Opening...' : 'Buy'}
+                                    </PillButton>
+                                    <PillButton
+                                        type="button"
+                                        onClick={handleOpenOfferModal}
+                                        disabled={messagingLoading}
+                                        className="w-full"
+                                    >
+                                        Make Offer
+                                    </PillButton>
+                                </>
+                            )}
                         </div>
-                        <p className="font-bold text-2xl mt-5">Description:</p>
+                        {/* listing description */}
+                        <p className ="font-bold text-2xl mt-5">Description:</p>
                         <p className="text-2xl">{listing.description}</p>
                     </div>
                 </div>
