@@ -12,6 +12,8 @@ export interface Listing extends RecordModel {
     tags?: string;
     created: string;
     seller: string;
+    is_available: boolean;
+    quantity?: number;
     expand?: {
         seller?: {
             rating?: number | null;

@@ -45,7 +45,7 @@ export function useStartConversation(userId: string) {
                         buyer: currentUserId,
                         seller: userId,
                         listing: listingId ?? '',
-                        initial_offer: initialOffer ?? 0,
+                        offerPrice: initialOffer ?? 0, //Changed to offerPrice to match the catergory in pocketbase
                         buyer_deleted: false,
                         seller_deleted: false,
                     });
