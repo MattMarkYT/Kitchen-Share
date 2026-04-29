@@ -14,6 +14,9 @@ function getServerSnapshot(): null {
     return null;
 }
 
+
+let refreshPromise: Promise<void> | null = null;
+
 /**
  * Hook that returns the current authenticated user's ID, or null if not logged in.
  *
@@ -37,13 +40,29 @@ export function useCurrentUser() {
     const currentUserId = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
     useEffect(() => {
-        if (pb.authStore.token && pb.authStore.isValid) {
-            pb.collection('users').authRefresh().catch(() => {
-                pb.authStore.clear();
-            });
-        } else if (pb.authStore.token) {
+        if (!pb.authStore.token) return;
+
+        if (!pb.authStore.isValid) {
             pb.authStore.clear();
+            return;
         }
+        if (refreshPromise) return;
+        let clearedDuringRefresh = false;
+        const unsubscribe = pb.authStore.onChange((token) => {
+            if (!token) clearedDuringRefresh = true;
+        });
+
+        refreshPromise = pb.collection('users').authRefresh()
+            .then(() => {
+                if (clearedDuringRefresh) pb.authStore.clear();
+            })
+            .catch(() => {
+                pb.authStore.clear();
+            })
+            .finally(() => {
+                refreshPromise = null;
+                unsubscribe();
+            });
     }, []);
 
     return currentUserId;

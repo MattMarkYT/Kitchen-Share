@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {usePathname, useRouter} from "next/navigation";
+import {usePathname} from "next/navigation";
 import Link from "next/link";
 import pb from "../lib/pb";
 import { useCurrentUser } from "../hooks";
@@ -21,7 +21,6 @@ type UserRecord = {
 };
 
 export default function Navbar() {
-    const router = useRouter();
     const currentUserId = useCurrentUser();
     const isMobile = useIsMobile();
     const {setIsOnLogin} = useIsLogin();
@@ -32,10 +31,14 @@ export default function Navbar() {
     const [searchOpen, setSearchOpen] = useState(false);
 
     const handleLogout = () => {
-        pb.realtime.unsubscribeByPrefix('');
-        pb.authStore.clear();
-        setMenuOpen(false);
-        router.refresh();
+        try {
+            pb.cancelAllRequests();
+            pb.realtime.unsubscribe();
+        } finally {
+            pb.authStore.clear();
+            setMenuOpen(false);
+            window.location.href = '/';
+        }
     };
 
     useEffect(() => {
@@ -45,12 +48,18 @@ export default function Navbar() {
                 return;
             }
 
+
+            const cached = pb.authStore.record;
+            if (cached?.id === currentUserId) {
+                setUser(cached as UserRecord);
+            }
+
             try {
                 const record = await pb.collection("users").getOne<UserRecord>(currentUserId);
                 setUser(record);
             } catch (error) {
                 console.error("Failed to fetch user:", error);
-                setUser(null);
+                if (!pb.authStore.record) setUser(null);
             }
         };
 
