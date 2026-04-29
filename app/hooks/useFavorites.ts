@@ -2,63 +2,68 @@ import { useState, useEffect } from 'react';
 import pb from '../lib/pb';
 import { Favorites } from '../types/favorites';
 import { Listing } from '../types/listing';
-import { getBlockedUserIds, getBlockedByUserIds } from '../lib/blockUtils';
+import { getCachedBlockedIds } from '../lib/blockUtils';
 
 export function useFavorites(userId: string | null) {
     const [favorites, setFavorites] = useState<Listing[]>([]);
-    const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
-    const [loading, setLoading] = useState(true);
+    // map<listingId, favoriteRecordId> — lets ListingCard delete without a separate lookup
+    const [favoriteIds, setFavoriteIds] = useState<Map<string, string>>(new Map());
+    const [loading, setLoading] = useState(!!userId);
 
-    const fetchFavorites = async () => {
+    useEffect(() => {
         if (!userId) {
             setFavorites([]);
-            setFavoriteIds(new Set());
+            setFavoriteIds(new Map());
             setLoading(false);
             return;
         }
 
-        try {
-            setLoading(true);
+        let cancelled = false;
+        setLoading(true);
 
-            // Get blocked user IDs (people user blocked)
-            const blockedUserIds = await getBlockedUserIds(userId);
-            // Get users who have blocked the current user
-            const blockedByUserIds = await getBlockedByUserIds(userId);
-            // Combine both lists
-            const allExcludedIds = [...blockedUserIds, ...blockedByUserIds];
+        const run = async () => {
+            try {
+                const filter = pb.filter('user = {:userId}', { userId });
 
-            const records = await pb.collection('favorites').getFullList<Favorites>({
-                filter: `user="${userId}"`,
-                expand: 'listing',
-            });
+                const [records, blockedIds] = await Promise.all([
+                    pb.collection('favorites').getFullList<Favorites>({
+                        filter,
+                        expand: 'listing',
+                    }),
+                    getCachedBlockedIds(userId),
+                ]);
 
-            let favoritedListings: Listing[] = records
-                .map((record) => record.expand?.listing)
-                .filter((listing): listing is Listing => listing !== undefined);
+                if (cancelled) return;
 
-            // Filter out listings from blocked users AND users who blocked current user
-            if (allExcludedIds.length > 0) {
-                favoritedListings = favoritedListings.filter(
-                    listing => !allExcludedIds.includes(listing.seller)
-                );
+                let favoritedListings: Listing[] = records
+                    .map((record) => record.expand?.listing)
+                    .filter((listing): listing is Listing => listing !== undefined);
+
+                if (blockedIds.size > 0) {
+                    favoritedListings = favoritedListings.filter(
+                        listing => !blockedIds.has(listing.seller)
+                    );
+                }
+
+                // map listingId to favoriteRecordId so ListingCard can delete correctly
+                const favoriteMap = new Map(records.map((r) => [r.listing as string, r.id]));
+
+                setFavorites(favoritedListings);
+                setFavoriteIds(favoriteMap);
+            } catch (error) {
+                if (!cancelled) {
+                    console.error('Error fetching favorites:', error);
+                    setFavorites([]);
+                    setFavoriteIds(new Map());
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
             }
+        };
 
-            const favoriteIdSet = new Set(records.map((record) => record.listing));
-
-            setFavorites(favoritedListings);
-            setFavoriteIds(favoriteIdSet);
-        } catch (error) {
-            console.error('Error fetching favorites:', error);
-            setFavorites([]);
-            setFavoriteIds(new Set());
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchFavorites();
+        run();
+        return () => { cancelled = true; };
     }, [userId]);
 
-    return { favorites, favoriteIds, loading, fetchFavorites };
+    return { favorites, favoriteIds, loading };
 }

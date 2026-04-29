@@ -8,10 +8,13 @@ import pb from './pb';
  */
 export async function hasBlocked(currentUserId: string | null, targetUserId: string): Promise<boolean> {
     if (!currentUserId || !targetUserId) return false;
-    
+
     try {
         await pb.collection('blocks').getFirstListItem(
-            `blocker="${currentUserId}" && blockedUser="${targetUserId}"`
+            pb.filter('blocker = {:blocker} && blockedUser = {:blocked}', {
+                blocker: currentUserId,
+                blocked: targetUserId,
+            })
         );
         return true;
     } catch {
@@ -27,10 +30,13 @@ export async function hasBlocked(currentUserId: string | null, targetUserId: str
  */
 export async function isBlockedBy(currentUserId: string | null, targetUserId: string): Promise<boolean> {
     if (!currentUserId || !targetUserId) return false;
-    
+
     try {
         await pb.collection('blocks').getFirstListItem(
-            `blocker="${targetUserId}" && blockedUser="${currentUserId}"`
+            pb.filter('blocker = {:blocker} && blockedUser = {:blocked}', {
+                blocker: targetUserId,
+                blocked: currentUserId,
+            })
         );
         return true;
     } catch {
@@ -45,10 +51,11 @@ export async function isBlockedBy(currentUserId: string | null, targetUserId: st
  */
 export async function getBlockedByUserIds(currentUserId: string | null): Promise<string[]> {
     if (!currentUserId) return [];
-    
+
     try {
         const blocks = await pb.collection('blocks').getFullList({
-            filter: `blockedUser="${currentUserId}"`,
+            filter: pb.filter('blockedUser = {:userId}', { userId: currentUserId }),
+            fields: 'blocker',
         });
         return blocks.map(b => b.blocker);
     } catch {
@@ -63,13 +70,34 @@ export async function getBlockedByUserIds(currentUserId: string | null): Promise
  */
 export async function getBlockedUserIds(currentUserId: string | null): Promise<string[]> {
     if (!currentUserId) return [];
-    
+
     try {
         const blocks = await pb.collection('blocks').getFullList({
-            filter: `blocker="${currentUserId}"`,
+            filter: pb.filter('blocker = {:userId}', { userId: currentUserId }),
+            fields: 'blockedUser',
         });
         return blocks.map(b => b.blockedUser);
     } catch {
         return [];
     }
+}
+
+// Shared module-level cache — avoids duplicate block fetches when useListings
+// and useFavorites are both mounted (e.g. home page). Keyed by user ID.
+let _blockCacheUserId: string | null = null;
+let _blockCachePromise: Promise<Set<string>> | null = null;
+
+export function getCachedBlockedIds(userId: string | null): Promise<Set<string>> {
+    if (!userId) return Promise.resolve(new Set());
+    if (_blockCacheUserId === userId && _blockCachePromise) return _blockCachePromise;
+    _blockCacheUserId = userId;
+    _blockCachePromise = Promise.all([
+        getBlockedUserIds(userId),
+        getBlockedByUserIds(userId),
+    ]).then(([blocked, blockedBy]) => new Set([...blocked, ...blockedBy]));
+    return _blockCachePromise;
+}
+
+export function bustBlockCache(): void {
+    _blockCachePromise = null;
 }

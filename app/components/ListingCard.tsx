@@ -4,15 +4,18 @@ import { Listing } from "@/app/types/listing";
 import pb from "@/app/lib/pb";
 import Link from "next/link";
 import {Check, Heart, MapPin, Share2, Star} from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useCurrentUser } from "@/app/hooks";
 import {toast} from "react-toastify";
 
 
-export function ListingCard({ listing }: { listing: Listing }) {
+export function ListingCard({ listing, favoriteIds }: { listing: Listing; favoriteIds?: Map<string, string> }) {
     const [copied, setCopied] = useState(false);
-    const [isFavorite, setIsFavorite] = useState(false);
-    const [favoriteRecordId, setFavoriteRecordId] = useState<string | null>(null);
+    const [isFavorite, setIsFavorite] = useState(() => favoriteIds?.has(listing.id) ?? false);
+    const [favoriteRecordId, setFavoriteRecordId] = useState<string | null>(
+        () => favoriteIds?.get(listing.id) ?? null
+    );
+    const [isPending, setIsPending] = useState(false);
 
     const copyLinkToast = () => toast.success("Link Copied!");
     const copyLinkFailedToast = () => toast.error("Failed to copy link!");
@@ -23,34 +26,6 @@ export function ListingCard({ listing }: { listing: Listing }) {
 
     const rating = listing.expand?.seller?.rating;
     const userId = useCurrentUser();
-
-    useEffect(() => {
-        const checkFavoriteStatus = async () => {
-            if (!userId) {
-                setIsFavorite(false);
-                setFavoriteRecordId(null);
-                return;
-            }
-
-            try {
-                const records = await pb.collection("favorites").getFullList({
-                    filter: `user="${userId}" && listing="${listing.id}"`,
-                });
-
-                if (records.length > 0) {
-                    setIsFavorite(true);
-                    setFavoriteRecordId(records[0].id);
-                } else {
-                    setIsFavorite(false);
-                    setFavoriteRecordId(null);
-                }
-            } catch (error) {
-                console.error("Error checking favorite status:", error);
-            }
-        };
-
-        checkFavoriteStatus();
-    }, [userId, listing.id]);
 
     const copyListingLink = async () => {
         const url = `${window.location.origin}/listing/${listing.id}`;
@@ -74,6 +49,9 @@ export function ListingCard({ listing }: { listing: Listing }) {
             return;
         }
 
+        if (isPending) return; // prevent double-click race condition
+        setIsPending(true);
+
         try {
             if (isFavorite && favoriteRecordId) {
                 await pb.collection("favorites").delete(favoriteRecordId);
@@ -90,6 +68,8 @@ export function ListingCard({ listing }: { listing: Listing }) {
             }
         } catch (error) {
             console.error("Error toggling favorite:", error);
+        } finally {
+            setIsPending(false);
         }
     };
 
@@ -108,7 +88,8 @@ export function ListingCard({ listing }: { listing: Listing }) {
                         <button
                             type="button"
                             onClick={toggleFavorite}
-                            className="absolute top-3 right-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-stone-700 shadow-sm backdrop-blur-sm transition hover:scale-110"
+                            disabled={isPending}
+                            className="absolute top-3 right-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-stone-700 shadow-sm backdrop-blur-sm transition hover:scale-110 disabled:opacity-50"
                         >
                             <Heart
                                 className={`h-5 w-5 transition ${

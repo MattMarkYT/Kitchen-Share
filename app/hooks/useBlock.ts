@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import pb from '../lib/pb';
+import { bustBlockCache } from '../lib/blockUtils';
 import { useCurrentUser } from './useCurrentUser';
 
 /**
@@ -19,7 +20,7 @@ export function useBlock(targetUserId: string) {
   const [toggling, setToggling]           = useState(false);
   const [error, setError]                 = useState('');
 
-  // On mount (or when either user changes), check if a block already exists
+  // on mount (or when either user changes), check if a block already exists
   useEffect(() => {
     if (!currentUserId || !targetUserId) {
       setLoading(false);
@@ -32,10 +33,13 @@ export function useBlock(targetUserId: string) {
       setLoading(true);
       try {
         const record = await pb
-          .collection('blocks')
-          .getFirstListItem(
-            `blocker="${currentUserId}" && blockedUser="${targetUserId}"`
-          );
+            .collection('blocks')
+            .getFirstListItem(
+                pb.filter('blocker = {:blocker} && blockedUser = {:blocked}', {
+                  blocker: currentUserId,
+                  blocked: targetUserId,
+                })
+            );
 
         if (!cancelled) {
           setBlockRecordId(record.id);
@@ -56,7 +60,7 @@ export function useBlock(targetUserId: string) {
     return () => { cancelled = true; };
   }, [currentUserId, targetUserId]);
 
-  // Toggle: create block if not blocked, delete it if blocked
+  // toggle: create block if not blocked, delete it if blocked
   const toggle = useCallback(async () => {
     if (!currentUserId || !targetUserId || toggling) return;
 
@@ -65,18 +69,20 @@ export function useBlock(targetUserId: string) {
 
     try {
       if (isBlocked && blockRecordId) {
-        // Unblock: delete the record
+        // unblock: delete the record
         await pb.collection('blocks').delete(blockRecordId);
         setBlockRecordId(null);
         setIsBlocked(false);
+        bustBlockCache();
       } else {
-        // Block: create a new record
+        // block: create a new record
         const record = await pb.collection('blocks').create({
           blocker: currentUserId,
           blockedUser: targetUserId,
         });
         setBlockRecordId(record.id);
         setIsBlocked(true);
+        bustBlockCache();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.');
