@@ -5,6 +5,7 @@ import Navbar from "@/app/components/Navbar";
 import {ToastContainer} from "react-toastify";
 import {LoginProvider} from "@/app/providers/LoginProvider";
 import ModalLogin from "@/app/components/ModalLogin";
+import Sidebar from "@/app/components/Sidebar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,10 +34,15 @@ export default function RootLayout({
     </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
       <LoginProvider>
-        <Navbar />
-        <ModalLogin/>
-        <ToastContainer position="bottom-center" autoClose={3000} />
-        {children}
+        <div className="flex flex-row" >
+            <Sidebar/>
+          <div className={"mx-auto w-full"}>
+            <Navbar/>
+            <ModalLogin/>
+            <ToastContainer position="bottom-center" autoClose={3000} />
+            {children}
+          </div>
+        </div>
       </LoginProvider>
       </body>
     </html>
