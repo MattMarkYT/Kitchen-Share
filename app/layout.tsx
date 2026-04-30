@@ -6,6 +6,8 @@ import {ToastContainer} from "react-toastify";
 import {LoginProvider} from "@/app/providers/LoginProvider";
 import ModalLogin from "@/app/components/ModalLogin";
 import Sidebar from "@/app/components/Sidebar";
+import {ListingProvider} from "@/app/providers/ListingProvider";
+import ModalListing from "@/app/components/ModalListing";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,15 +36,18 @@ export default function RootLayout({
     </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
       <LoginProvider>
-        <div className="flex flex-row" >
+        <ListingProvider>
+        <div className="flex flex-row">
             <Sidebar/>
-          <div className={"mx-auto w-full"}>
+          <div className={"relative mx-auto w-full"}>
             <Navbar/>
             <ModalLogin/>
-            <ToastContainer position="bottom-center" autoClose={3000} />
+            <ModalListing/>
             {children}
           </div>
+          <ToastContainer position="bottom-center" autoClose={2500} />
         </div>
+        </ListingProvider>
       </LoginProvider>
       </body>
     </html>
