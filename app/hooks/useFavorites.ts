@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import pb from '../lib/pb';
 import { Favorites } from '../types/favorites';
 import { Listing } from '../types/listing';
@@ -9,6 +9,8 @@ export function useFavorites(userId: string | null) {
     // map<listingId, favoriteRecordId> — lets ListingCard delete without a separate lookup
     const [favoriteIds, setFavoriteIds] = useState<Map<string, string>>(new Map());
     const [loading, setLoading] = useState(!!userId);
+    const [error, setError] = useState<Error | null>(null);
+    const [tick, setTick] = useState(0);
 
     useEffect(() => {
         if (!userId) {
@@ -20,6 +22,7 @@ export function useFavorites(userId: string | null) {
 
         let cancelled = false;
         setLoading(true);
+        setError(null);
 
         const run = async () => {
             try {
@@ -29,6 +32,7 @@ export function useFavorites(userId: string | null) {
                     pb.collection('favorites').getFullList<Favorites>({
                         filter,
                         expand: 'listing',
+                        requestKey: 'useFavorites',
                     }),
                     getCachedBlockedIds(userId),
                 ]);
@@ -41,18 +45,18 @@ export function useFavorites(userId: string | null) {
 
                 if (blockedIds.size > 0) {
                     favoritedListings = favoritedListings.filter(
-                        listing => !blockedIds.has(listing.seller)
+                        listing => !blockedIds.has(listing.seller as string)
                     );
                 }
 
-                // map listingId to favoriteRecordId so ListingCard can delete correctly
+                // map listingId → favoriteRecordId so ListingCard can delete correctly
                 const favoriteMap = new Map(records.map((r) => [r.listing as string, r.id]));
 
                 setFavorites(favoritedListings);
                 setFavoriteIds(favoriteMap);
-            } catch (error) {
+            } catch (err) {
                 if (!cancelled) {
-                    console.error('Error fetching favorites:', error);
+                    setError(err as Error);
                     setFavorites([]);
                     setFavoriteIds(new Map());
                 }
@@ -63,7 +67,9 @@ export function useFavorites(userId: string | null) {
 
         run();
         return () => { cancelled = true; };
-    }, [userId]);
+    }, [userId, tick]);
 
-    return { favorites, favoriteIds, loading };
+    const refetch = useCallback(() => setTick(t => t + 1), []);
+
+    return { favorites, favoriteIds, loading, error, refetch };
 }

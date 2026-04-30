@@ -5,16 +5,15 @@ import { useFavorites } from "@/app/hooks/useFavorites";
 import {useCurrentUser} from "@/app/hooks";
 import {useEffect} from "react";
 import { useRouter } from "next/navigation";
-import pb from "@/app/lib/pb";
 import {setAuthRedirect} from "@/app/api/authRedirect";
 
 export default function Favorites() {
     const userId = useCurrentUser();
-    const { favorites, loading } = useFavorites(userId);
+    const { favorites, favoriteIds, loading, error, refetch } = useFavorites(userId);
     const router = useRouter();
 
     useEffect(() => {
-        if (!pb.authStore.isValid) {
+        if (!userId) {
             setAuthRedirect();
             router.push("/auth");
         }
@@ -25,6 +24,22 @@ export default function Favorites() {
         return  <div className="min-h-screen flex items-center justify-center bg-gray-100">
             <p className="text-gray-500">Loading...</p>
         </div>
+    }
+
+    if (error) {
+        return (
+            <main className="min-h-screen bg-white font-sans relative overflow-hidden">
+                <div className="p-6 text-center">
+                    <h1 className="mb-8 text-4xl font-bold tracking-tight text-stone-900 sm:text-5xl">
+                        Your Favorites
+                    </h1>
+                    <p className="text-lg text-red-500 mt-10">Couldn&apos;t load favorites.</p>
+                    <button onClick={refetch} className="mt-4 px-4 py-2 rounded-xl bg-stone-900 text-white text-sm font-medium hover:bg-stone-700 transition">
+                        Retry
+                    </button>
+                </div>
+            </main>
+        );
     }
 
     if (loading) {
@@ -59,7 +74,7 @@ export default function Favorites() {
                     <div className="flex justify-center mt-16 mb-24 mx-6">
                         <ul className="grid gap-10 grid-cols-[repeat(auto-fill,minmax(177px,1fr))] max-w-[1200px] w-full list-none p-0">
                             {favorites.map((listing) => (
-                                <ListingCard key={listing.id} listing={listing} />
+                                <ListingCard key={listing.id} listing={listing} favoriteIds={favoriteIds} onUnfavorite={refetch} />
                             ))}
                         </ul>
                     </div>

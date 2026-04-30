@@ -9,7 +9,7 @@ import { useCurrentUser } from "@/app/hooks";
 import {toast} from "react-toastify";
 
 
-export function ListingCard({ listing, favoriteIds }: { listing: Listing; favoriteIds?: Map<string, string> }) {
+export function ListingCard({ listing, favoriteIds, onUnfavorite }: { listing: Listing; favoriteIds?: Map<string, string>; onUnfavorite?: () => void }) {
     const [copied, setCopied] = useState(false);
     const [isFavorite, setIsFavorite] = useState(() => favoriteIds?.has(listing.id) ?? false);
     const [favoriteRecordId, setFavoriteRecordId] = useState<string | null>(
@@ -57,6 +57,7 @@ export function ListingCard({ listing, favoriteIds }: { listing: Listing; favori
                 await pb.collection("favorites").delete(favoriteRecordId);
                 setIsFavorite(false);
                 setFavoriteRecordId(null);
+                onUnfavorite?.();
             } else {
                 const newFavorite = await pb.collection("favorites").create({
                     user: userId,
