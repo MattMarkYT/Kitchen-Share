@@ -31,7 +31,6 @@ export default function CreateListing() {
     const [category, setCategory] = useState("");
     const [additionalTags, setAdditionalTags] = useState("");
     const [description, setDescription] = useState("");
-    const [quantity, setQuantity] = useState("");
     const [allergies, setAllergies] = useState<string[]>([]);
     const [errors, setErrors] = useState<Errors>({});
     const [submitError, setSubmitError] = useState<string | null>(null);
@@ -102,14 +101,12 @@ export default function CreateListing() {
             data.append("allergies", !allergies.length ? "None" : allergies.join(", "));
             data.append("seller", pb.authStore.record?.id ?? "");
             data.append("is_available", "true");
-            data.append("quantity", quantity || "0");
 
             // First image → main_image, rest → images
             data.append("main_image", images[0]);
             for (let i = 1; i < images.length; i++) {
                 data.append("images", images[i]);
             }
-
             await pb.collection("listings").create(data);
             router.push("/");
         } catch (err) {
@@ -187,13 +184,6 @@ export default function CreateListing() {
                         placeholder="e.g. Downtown LA"
                         onChange={e => setLocation(e.target.value)}/>
 
-                {/* Servings */}
-                <InputField label="Quantity" fieldType="textS" optional={true}
-                        type="number"
-                        min="1"
-                        step="1"
-                        placeholder="e.g. 4"
-                        onChange={e => setQuantity(e.target.value)}/>
 
                 <InputField label="Description" fieldType="textL" optional={true}
                             placeholder="Tell buyers about your food..."

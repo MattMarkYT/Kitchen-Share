@@ -17,7 +17,7 @@ export function useMyListings() {
 
         try {
             const data = await pb.collection('listings').getFullList<Listing>({
-                filter: `seller = "${user.id}"`,
+                filter: `seller = "${user.id}" && is_available = true`,
                 sort: '-created',
                 expand: 'seller',
             });

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { MapPin, Trash2, Pencil, CheckCircle, X, Package } from 'lucide-react';
+import { MapPin, Trash2, Pencil, CheckCircle, X} from 'lucide-react';
 import pb from '@/app/lib/pb';
 import { useMyListings } from '@/app/hooks/useMyListings';
 import { CATEGORY_OPTIONS } from '@/app/types/categories';
@@ -27,7 +27,6 @@ type EditForm = {
     description: string;
     category: string;
     tags: string;
-    quantity: string;
 };
 
 
@@ -56,7 +55,7 @@ function ConfirmSaleModal({
         const fetchBuyers = async () => {
             try {
                 const conversations = await pb.collection('conversations').getFullList({
-                    filter: `listing = "${listing.id}" && last_message != "Seller has confirmed the purchase."`,
+                    filter: `listing = "${listing.id}" && saleConfirmed = false`,
                     expand: 'buyer',
                 });
 
@@ -90,19 +89,15 @@ function ConfirmSaleModal({
         if (!selectedBuyer) return;
         setConfirming(true);
         try {
-            const currentQuantity = listing.quantity ?? 0;
-            const newQuantity = Math.max(0, currentQuantity - 1);
-            const soldOut = newQuantity === 0;
 
-            // Decrement inventory, only mark sold out and set buyer when stock hits 0
             await pb.collection('listings').update(listing.id, {
-                quantity: newQuantity,
-                ...(soldOut ? { is_available: false, buyer: selectedBuyer.id } : {}),
+                buyer: selectedBuyer.id,
             });
 
             // Update the conversation with a confirmed message
             await pb.collection('conversations').update(selectedBuyer.conversationId, {
                 last_message: 'Seller has confirmed the purchase.',
+                saleConfirmed: true,
             });
 
             // Increment seller's successfulListings
@@ -128,11 +123,6 @@ function ConfirmSaleModal({
                     <div>
                         <h2 className="text-lg font-bold text-stone-900">Confirm Sale</h2>
                         <p className="text-sm text-stone-400 mt-0.5">{listing.title}</p>
-                        {(listing.quantity ?? 0) > 0 && (
-                            <p className="text-xs text-stone-400 mt-0.5">
-                                {listing.quantity} in stock → {Math.max(0, (listing.quantity ?? 0) - 1)} after sale
-                            </p>
-                        )}
                     </div>
                     <button onClick={onClose} className="text-stone-400 hover:text-stone-700 transition-colors">
                         <X className="w-5 h-5" />
@@ -232,7 +222,6 @@ function EditModal({
         description: listing.description ?? '',
         category: listing.category ?? '',
         tags: listing.tags ?? '',
-        quantity: String(listing.quantity ?? ''),
     });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -250,7 +239,6 @@ function EditModal({
         setSaving(true);
         setError(null);
         try {
-            const newQuantity = Number(form.quantity) || 0;
             await pb.collection('listings').update(listing.id, {
                 title: form.title.trim(),
                 price: Number(form.price),
@@ -258,8 +246,6 @@ function EditModal({
                 description: form.description.trim(),
                 category: form.category,
                 tags: form.tags.trim(),
-                quantity: newQuantity,
-                is_available: newQuantity > 0,
             });
             onSaved();
             onClose();
@@ -292,10 +278,6 @@ function EditModal({
                     <div>
                         <label className="block text-xs font-semibold text-stone-500 mb-1.5">Price ($)</label>
                         <input className={inputClass} type="number" min="0" step="0.01" value={form.price} onChange={handleChange('price')} placeholder="0.00" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-semibold text-stone-500 mb-1.5">Stock</label>
-                        <input className={inputClass} type="number" min="0" step="1" value={form.quantity} onChange={handleChange('quantity')} placeholder="e.g. 10" />
                     </div>
                     <div>
                         <label className="block text-xs font-semibold text-stone-500 mb-1.5">Location</label>
@@ -357,16 +339,31 @@ function DeleteModal({
     const [error, setError] = useState<string | null>(null);
 
     const handleDelete = async () => {
-        setDeleting(true);
-        try {
-            await pb.collection('listings').delete(listing.id);
-            onDeleted();
-            onClose();
-        } catch {
-            setError('Failed to delete. Please try again.');
-            setDeleting(false);
-        }
-    };
+    setDeleting(true);
+    try {
+        // Archive all linked conversations
+        const conversations = await pb.collection('conversations').getFullList({
+            filter: `listing = "${listing.id}"`,
+        });
+        await Promise.all(conversations.map(c =>
+            pb.collection('conversations').update(c.id, {
+                buyer_archived: true,
+                seller_archived: true,
+            })
+        ));
+
+        // Soft delete the listing
+        await pb.collection('listings').update(listing.id, {
+            is_available: false,
+        });
+
+        onDeleted();
+        onClose();
+    } catch {
+        setError('Failed to delete. Please try again.');
+        setDeleting(false);
+    }
+};
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -431,14 +428,6 @@ export default function MyListingsPage() {
                     <p className="text-2xl font-bold text-stone-900">{listings.length}</p>
                     <p className="text-sm text-stone-400">Posts</p>
                 </div>
-                <div>
-                    <p className="text-2xl font-bold text-stone-900">{listings.filter(l => !l.is_available).length}</p>
-                    <p className="text-sm text-stone-400">Sold Out</p>
-                </div>
-                <div>
-                    <p className="text-2xl font-bold text-stone-900">{listings.reduce((sum, l) => sum + (l.quantity ?? 0), 0)}</p>
-                    <p className="text-sm text-stone-400">Total Stock</p>
-                </div>
             </div>
 
             {/* States */}
@@ -467,11 +456,6 @@ export default function MyListingsPage() {
                                     <div className="absolute bottom-3 right-3 rounded-full bg-white/60 px-3 py-1 text-sm font-semibold text-stone-900 shadow-sm backdrop-blur-sm">
                                         ${Number(listing.price).toLocaleString()}
                                     </div>
-                                    {!listing.is_available && (
-                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                            <span className="text-white font-bold text-lg tracking-wide bg-black/60 px-4 py-1.5 rounded-full">Sold Out</span>
-                                        </div>
-                                    )}
                                 </div>
                                 <div className="p-4 space-y-1">
                                     <h3 className="line-clamp-1 text-base font-semibold text-stone-900">
@@ -480,10 +464,6 @@ export default function MyListingsPage() {
                                     <div className="flex items-center gap-1 text-sm text-stone-500">
                                         <MapPin className="h-3.5 w-3.5" />
                                         <span className="line-clamp-1">{listing.location || 'Neighborhood unavailable'}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1 text-sm text-stone-500">
-                                        <Package className="h-3.5 w-3.5" />
-                                        <span>{listing.quantity ?? 0} in stock</span>
                                     </div>
                                 </div>
                             </Link>
