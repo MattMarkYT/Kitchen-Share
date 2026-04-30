@@ -20,7 +20,7 @@ export function useConversations(currentUserId: string | null) {
 
         try {
             const result = await pb.collection('conversations').getFullList({
-                filter: `(buyer="${currentUserId}" && buyer_deleted=false) || (seller="${currentUserId}" && seller_deleted=false)`,
+                filter: `(buyer="${currentUserId}" && buyer_deleted=false && buyer_archived=false) || (seller="${currentUserId}" && seller_deleted=false && seller_archived=false)`,
                 expand: 'buyer,seller,listing',
                 sort: '-updated',
                 requestKey: null,
