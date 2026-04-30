@@ -6,6 +6,7 @@ import {ClientResponseError, RecordModel} from "pocketbase";
 import {Camera, Pizza, Upload, Users} from "lucide-react";
 import {toast} from "react-toastify";
 import pb from "@/app/lib/pb";
+import Link from "next/link";
 
 export interface User extends RecordModel {
     email: string;
@@ -298,7 +299,7 @@ export default function MassUpload() {
                                     className={"rounded-full h-48 w-48 object-cover"}
                                 />
                                 <div className={"flex flex-col"}>
-                                    <span className="text-center text-4xl">{selectedUser.displayName}</span>
+                                    <span className="text-center text-4xl">{selectedUser.displayName} <Link className={"text-blue-500"} target="_blank" href={`/profile/${selectedUser.id}`}>Profile</Link></span>
                                     <span className="text-2xl text-gray-700">{selectedUser.bio}</span>
                                 </div>
 
