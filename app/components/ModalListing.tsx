@@ -139,7 +139,7 @@ export default function ModalListing() {
             setIsOnLogin(true);
             return;
         }
-        startConversation(listing.id, listing.price);
+        startConversation(listing.id, listing.price, 'buy');
     }
 
     const handleOffer = () => {
@@ -161,7 +161,7 @@ export default function ModalListing() {
         if (!data) return;
 
         const parsedOfferAmount = Math.max(0, Number(offerAmount) || 0);
-        startConversation((data.listing as ListingRecord).id, parsedOfferAmount);
+        startConversation((data.listing as ListingRecord).id, parsedOfferAmount, 'offer');
         closeOfferModal();
     };
 

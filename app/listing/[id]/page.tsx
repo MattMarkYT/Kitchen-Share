@@ -102,7 +102,7 @@ export default function ItemPage() {
         }
         setOfferError(undefined);
         setShowOfferModal(false);
-        startConversation(id, amount);
+        startConversation(id, amount, 'offer');
     };
 
     if (!listing) return <div>Loading...</div>;
@@ -187,7 +187,7 @@ export default function ItemPage() {
                                     {/* if not owner show purchase options */}
                                     <PillButton
                                         type="button"
-                                        onClick={() => startConversation(id, listing.price)}
+                                        onClick={() => startConversation(id, listing.price, 'buy')}
                                         disabled={messagingLoading}
                                         className="w-full"
                                     >
