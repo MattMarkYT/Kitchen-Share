@@ -80,6 +80,8 @@ export default function ConversationPage() {
             // 1. Update the conversation first
             await pb.collection('conversations').update(conversationId, {
                 last_message: finalizationMessage,
+                saleConfirmed: status === 'confirmed',
+                saleCancelled: status === 'cancelled',
                 ...(status === 'confirmed' ? { seller_archived: true } : {}),
             });
 
@@ -192,34 +194,22 @@ export default function ConversationPage() {
     const offerPrice = conversation?.offerPrice ?? conversation?.initial_offer ?? null;
     const saleStatus =
         localSaleStatus ||
-        (conversation?.last_message === "Seller has confirmed the purchase." ? "confirmed" : null);
+        (conversation?.saleConfirmed?'confirmed' : conversation?.saleCancelled ? 'cancelled' : null);
     const canFinalizeSale = !isBuyer && !!listing && !saleStatus;
 
-    // check if buyer already submitted a review
-    useEffect(() => {
-        const checkExistingReview = async () => {
-            if (!conversationId || !currentUserId || !isBuyer || saleStatus !== 'confirmed') {
-                setHasReviewed(false);
-                return;
-            }
+    //check if confimred convo was already rated by buyer, if so hide rating component
+   useEffect(() => {
+       if (!conversation || !currentUserId || !isBuyer || saleStatus !== 'confirmed'){
+           setHasReviewed(false);
+           return;
 
-            try {
-                const existing = await pb.collection('ratings').getFullList({
-                    filter: `buyer="${currentUserId}"`,
-                });
 
-                setHasReviewed(existing.length > 0);
-            } catch (error) {
-                console.error('Failed to check review status:', error);
-            }
-        };
-
-        checkExistingReview();
-    }, [conversationId, currentUserId, isBuyer, saleStatus]);
+       }
+       setHasReviewed(Boolean(conversation?.buyerRated));
+   }, [conversation, currentUserId, isBuyer, saleStatus]);
 
 
     // buyer submits a rating after sale is confirmed
-
     const handleSubmitRating = useCallback(async () => {
         if (!conversation || !currentUserId || !isBuyer || selectedRating === 0) return;
 
@@ -227,27 +217,40 @@ export default function ConversationPage() {
             setSubmittingRating(true);
             setRatingError('');
 
+            const sellerId = conversation.seller;
+            const listingId = conversation.expand?.listing?.id;
+
+            if(!sellerId || !listingId) {
+                throw new Error("Seller or listing information is missing.");
+            }
+
+            if(conversation.buyerRated){
+                 setHasReviewed(true);
+                 return;
+            }
+
+            //create rating record in database
             await pb.collection('ratings').create({
                 buyer: currentUserId,
-                seller: conversation.seller,
-                listing: conversation.listing,
+                seller: sellerId,
+                listing: listingId,
                 rating: selectedRating,
             });
-
-            // recalculate seller average rating
-            const sellerReviews = await pb.collection('ratings').getFullList({
-                filter: `seller="${conversation.seller}"`,
+            //mark this convo as rated
+            await pb.collection('conversations').update(conversation.id, {
+                buyerRated: true,
             });
 
-            const average =
-                sellerReviews.reduce((sum, review) => sum + Number(review.rating), 0) /
-                sellerReviews.length;
-
-            // await pb.collection('users').update(conversation.seller, {
-            //   rating: average,
-            //});
-
-            setHasReviewed(true);
+            //delete all messages in this convo
+            const allMessages = await pb.collection('messages').getFullList({
+                filter: `conversation = "${conversation.id}"`,
+            });
+            await Promise.all(allMessages.map(msg => pb.collection('messages').delete(msg.id)));
+            //delete convo after rating is submitted
+            await pb.collection('conversations').delete(conversation.id);
+            //redirect back to messages list
+            router.push('/messages');
+            return;
         } catch (err: any) {
             console.error("Submit rating error:", err);
             console.error("Submit rating error data:", err?.response?.data);
@@ -255,7 +258,26 @@ export default function ConversationPage() {
         } finally {
             setSubmittingRating(false);
         }
-    }, [conversation, currentUserId, isBuyer, selectedRating]);
+    }, [conversation, currentUserId, isBuyer, selectedRating, router]);
+
+    const handleEndConversation = useCallback(async () => {
+       if(!conversationId) return;
+
+       try{
+           //delete all messages in convo
+           const allMessages = await pb.collection('messages').getFullList({
+               filter: `conversation = "${conversationId}"`,
+           });
+           await Promise.all(allMessages.map(msg => pb.collection('messages').delete(msg.id)));
+           //delete convo record itself
+           await pb.collection('conversations').delete(conversationId);
+           //redirect back to messages list
+           router.push('/messages');
+       }catch(err:any){
+           console.error("Error ending conversation:", err);
+            setFinalizationError(err?.message || 'Failed to end conversation. Please try again.');
+       }
+   }, [conversationId, router]);
 
     if (!currentUserId) {
         return (
@@ -371,7 +393,7 @@ export default function ConversationPage() {
                 {(saleStatus || canFinalizeSale) && (
                     <div className="px-5 pb-4 border-b border-gray-100 bg-gray-50">
                         {saleStatus ? (
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-3">
                                 <span
                                     className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
                                         saleStatus === 'confirmed'
@@ -386,6 +408,20 @@ export default function ConversationPage() {
                                         ? 'The listing has been marked unavailable.'
                                         : 'This sale has been cancelled by the seller.'}
                                 </p>
+
+                                {saleStatus === 'cancelled' && (
+                                   <PillButton
+                                       type="button"
+                                       onClick={handleEndConversation}
+                                       className="w-fit"
+                                   >
+                                       End Conversation
+                                   </PillButton>
+                               )}
+                               {finalizationError && (
+                                   <p className="text-red-500 text-xs">{finalizationError}</p>
+                               )}
+
                             </div>
                         ) : (
                             <div className="flex flex-col gap-3">
