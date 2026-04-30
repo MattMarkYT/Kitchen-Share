@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo, useCallback, KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, KeyboardEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useCurrentUser, useConversation } from '../../hooks';
 import PillButton from '../../components/PillButton';
@@ -44,75 +44,69 @@ export default function ConversationPage() {
     // Show "unavailable" page if the other user is blocked OR has blocked current user
     useEffect(() => {
         if (!currentUserId || !conversation) return;
-        
-        const otherUserId = conversation.buyer === currentUserId 
-            ? conversation.seller 
+
+        const otherUserId = conversation.buyer === currentUserId
+            ? conversation.seller
             : conversation.buyer;
-        
+
+        let cancelled = false;
+
         const checkBlocked = async () => {
-            const blocked = await hasBlocked(currentUserId, otherUserId);
-            const blockedBy = await isBlockedBy(currentUserId, otherUserId);
-            if (blocked || blockedBy) {
+            if (!cancelled) setIsBlocked(false);
+            const [blocked, blockedBy] = await Promise.all([
+                hasBlocked(currentUserId, otherUserId),
+                isBlockedBy(currentUserId, otherUserId),
+            ]);
+            if (!cancelled && (blocked || blockedBy)) {
                 setIsBlocked(true);
             }
         };
         checkBlocked();
+        return () => { cancelled = true; };
     }, [currentUserId, conversation]);
 
-    // Show unavailable page if blocked
-    if (isBlocked) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-100">
-                <div className="text-center">
-                    <h1 className="text-2xl font-bold text-gray-800 mb-4">Conversation Unavailable</h1>
-                    <p className="text-gray-600">This conversation is not available.</p>
-                </div>
-            </div>
-        );
-    }
-
     const handleFinalizeSale = useCallback(async (status: 'confirmed' | 'cancelled') => {
-    if (!conversationId || !currentUserId) return;
+        if (!conversationId || !currentUserId) return;
 
-    setFinalizationError('');
-    setFinalizing(true);
+        setFinalizationError('');
+        setFinalizing(true);
 
-    try {
-        const finalizationMessage =
-            status === 'confirmed'
-                ? 'Seller has confirmed the purchase.'
-                : 'Seller has cancelled the sale.';
+        try {
+            const finalizationMessage =
+                status === 'confirmed'
+                    ? 'Seller has confirmed the purchase.'
+                    : 'Seller has cancelled the sale.';
 
-        // 1. Update the conversation first
-        await pb.collection('conversations').update(conversationId, {
-            last_message: finalizationMessage,
-            ...(status === 'confirmed' ? { seller_archived: true } : {}),
-        });
-
-        // 2. Create the message after the conversation update succeeds
-        await pb.collection('messages').create({
-            conversation: conversationId,
-            sender: currentUserId,
-            body: finalizationMessage,
-            read: false,
-        });
-
-        // 3. Update seller stats only for confirmed sales
-        if (status === 'confirmed' && conversation?.expand?.seller?.id) {
-            const currentCount = Number(conversation.expand.seller.successfulListings ?? 0);
-            await pb.collection('users').update(conversation.expand.seller.id, {
-                successfulListings: currentCount + 1,
+            // 1. Update the conversation first
+            await pb.collection('conversations').update(conversationId, {
+                last_message: finalizationMessage,
+                ...(status === 'confirmed' ? { seller_archived: true } : {}),
             });
-        }
 
-        setLocalSaleStatus(status);
-        await refreshConversation();
-    } catch (err: any) {
-        setFinalizationError(err?.message || 'Failed to finalize sale.');
-    } finally {
-        setFinalizing(false);
-    }
-}, [conversation, conversationId, currentUserId, refreshConversation]);
+            // 2. Create the message after the conversation update succeeds
+            await pb.collection('messages').create({
+                conversation: conversationId,
+                sender: currentUserId,
+                body: finalizationMessage,
+                read: false,
+            });
+
+            // 3. Update seller stats only for confirmed sales
+            if (status === 'confirmed' && conversation?.expand?.seller?.id) {
+                const currentCount = Number(conversation.expand.seller.successfulListings ?? 0);
+                await pb.collection('users').update(conversation.expand.seller.id, {
+                    successfulListings: currentCount + 1,
+                });
+            }
+
+            setLocalSaleStatus(status);
+            await refreshConversation();
+        } catch (err: any) {
+            setFinalizationError(err?.message || 'Failed to finalize sale.');
+        } finally {
+            setFinalizing(false);
+        }
+    }, [conversation, conversationId, currentUserId, refreshConversation]);
 
     const [newMessage, setNewMessage] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -128,7 +122,7 @@ export default function ConversationPage() {
 
     // scroll to bottom on initial load / new message
     const prevMessageCountRef = useRef(0);
-    useEffect(() => {
+    useLayoutEffect(() => {
         const container = scrollContainerRef.current;
         if (!container) return;
 
@@ -140,8 +134,6 @@ export default function ConversationPage() {
             // initial load — jump straight to bottom
             messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
         } else if (newCount > prevCount) {
-            // check if the new message was appended at the bottom
-
             const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
             if (isAtBottom) {
                 messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -155,7 +147,7 @@ export default function ConversationPage() {
         const container = scrollContainerRef.current;
         if (!container) return;
 
-        if (container.scrollTop === 0 && hasMore && !loadingMore) {
+        if (container.scrollTop <= 4 && hasMore && !loadingMore) {
             // save scroll height
             prevScrollHeightRef.current = container.scrollHeight;
             loadMore();
@@ -163,7 +155,7 @@ export default function ConversationPage() {
     }, [hasMore, loadingMore, loadMore]);
 
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         const container = scrollContainerRef.current;
         if (!container || !prevScrollHeightRef.current) return;
 
@@ -193,16 +185,17 @@ export default function ConversationPage() {
     const isBuyer = conversation?.buyer === currentUserId;
     const otherUser = isBuyer ? conversation?.expand?.seller : conversation?.expand?.buyer;
     const listing = conversation?.expand?.listing;
+    const isArchived = isBuyer ? !!conversation?.buyer_archived : !!conversation?.seller_archived;
     const otherAvatarUrl = otherUser?.avatar ? pb.files.getURL(otherUser, otherUser.avatar) : '/placeholder-avatar.png';
     const listingImageUrl = listing?.main_image ? pb.files.getURL(listing, listing.main_image) : '/placeholder.png';
     const listingPrice = listing?.price ?? -1;
     const offerPrice = conversation?.offerPrice ?? conversation?.initial_offer ?? null;
     const saleStatus =
-    localSaleStatus ||
-    (conversation?.last_message === "Seller has confirmed the purchase." ? "confirmed" : null);
+        localSaleStatus ||
+        (conversation?.last_message === "Seller has confirmed the purchase." ? "confirmed" : null);
     const canFinalizeSale = !isBuyer && !!listing && !saleStatus;
 
-    // check if buyer already submitted a review 
+    // check if buyer already submitted a review
     useEffect(() => {
         const checkExistingReview = async () => {
             if (!conversationId || !currentUserId || !isBuyer || saleStatus !== 'confirmed') {
@@ -228,41 +221,41 @@ export default function ConversationPage() {
     // buyer submits a rating after sale is confirmed
 
     const handleSubmitRating = useCallback(async () => {
-    if (!conversation || !currentUserId || !isBuyer || selectedRating === 0) return;
+        if (!conversation || !currentUserId || !isBuyer || selectedRating === 0) return;
 
-    try {
-        setSubmittingRating(true);
-        setRatingError('');
+        try {
+            setSubmittingRating(true);
+            setRatingError('');
 
-        await pb.collection('ratings').create({
-            buyer: currentUserId,
-            seller: conversation.seller,
-            listing: conversation.listing,
-            rating: selectedRating,
-        });
+            await pb.collection('ratings').create({
+                buyer: currentUserId,
+                seller: conversation.seller,
+                listing: conversation.listing,
+                rating: selectedRating,
+            });
 
-        // recalculate seller average rating
-        const sellerReviews = await pb.collection('ratings').getFullList({
-            filter: `seller="${conversation.seller}"`,
-        });
+            // recalculate seller average rating
+            const sellerReviews = await pb.collection('ratings').getFullList({
+                filter: `seller="${conversation.seller}"`,
+            });
 
-        const average =
-            sellerReviews.reduce((sum, review) => sum + Number(review.rating), 0) /
-            sellerReviews.length;
+            const average =
+                sellerReviews.reduce((sum, review) => sum + Number(review.rating), 0) /
+                sellerReviews.length;
 
-       // await pb.collection('users').update(conversation.seller, {
-         //   rating: average,
-        //});
+            // await pb.collection('users').update(conversation.seller, {
+            //   rating: average,
+            //});
 
-        setHasReviewed(true);
-    } catch (err: any) {
-        console.error("Submit rating error:", err);
-        console.error("Submit rating error data:", err?.response?.data);
-        setRatingError(err?.message || 'Failed to submit rating.');
-    } finally {
-        setSubmittingRating(false);
-    }
-}, [conversation, currentUserId, isBuyer, selectedRating]);
+            setHasReviewed(true);
+        } catch (err: any) {
+            console.error("Submit rating error:", err);
+            console.error("Submit rating error data:", err?.response?.data);
+            setRatingError(err?.message || 'Failed to submit rating.');
+        } finally {
+            setSubmittingRating(false);
+        }
+    }, [conversation, currentUserId, isBuyer, selectedRating]);
 
     if (!currentUserId) {
         return (
@@ -272,6 +265,17 @@ export default function ConversationPage() {
                     <a href="/auth" className="text-blue-600 hover:underline">log in</a>{' '}
                     to view messages.
                 </p>
+            </div>
+        );
+    }
+
+    if (isBlocked) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-100">
+                <div className="text-center">
+                    <h1 className="text-2xl font-bold text-gray-800 mb-4">Conversation Unavailable</h1>
+                    <p className="text-gray-600">This conversation is not available.</p>
+                </div>
             </div>
         );
     }
@@ -290,13 +294,17 @@ export default function ConversationPage() {
                 <p className="text-red-500">{error}</p>
             </div>
         );
-    } 
+    }
 
     const handleSend = async () => {
         if (!newMessage.trim()) return;
         const msg = newMessage;
         setNewMessage('');
-        await sendMessage(msg);
+        try {
+            await sendMessage(msg);
+        } catch {
+            setNewMessage(msg);
+        }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -305,8 +313,6 @@ export default function ConversationPage() {
             handleSend();
         }
     };
-    console.log(`isBuyer: ${isBuyer}, listingPrice: ${listingPrice}, offerPrice: ${offerPrice}`)
-    console.log("FULL CONVERSATION:", conversation);
     return (
         <div className="min-h-screen bg-gray-100 flex items-start justify-center p-4 pt-8">
             <div className="w-full max-w-lg bg-white rounded-2xl shadow-lg flex flex-col overflow-hidden" style={{ height: 'min(80vh, 700px)' }}>
@@ -323,42 +329,42 @@ export default function ConversationPage() {
                         onClick={() => otherUser?.id && router.push(`/profile/${otherUser.id}`)}
                         className="flex items-center gap-3 min-w-0 flex-1 text-left cursor-pointer"
                     >
-                    <div className="relative shrink-0">
-                        <div className="w-9 h-9 rounded-full bg-gray-200 overflow-hidden border border-gray-200 flex items-center justify-center">
-                            {otherAvatarUrl ? (
-                                /* eslint-disable-next-line @next/next/no-img-element */
-                                <img src={otherAvatarUrl} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                                <span className="text-base text-gray-400">👤</span>
+                        <div className="relative shrink-0">
+                            <div className="w-9 h-9 rounded-full bg-gray-200 overflow-hidden border border-gray-200 flex items-center justify-center">
+                                {otherAvatarUrl ? (
+                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                    <img src={otherAvatarUrl} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                    <span className="text-base text-gray-400">👤</span>
+                                )}
+                            </div>
+                            {listing && listingImageUrl && (
+                                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-sm overflow-hidden border-2 border-white shadow-sm bg-gray-100">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={listingImageUrl} alt="" className="w-full h-full object-cover" />
+                                </div>
                             )}
                         </div>
-                        {listing && listingImageUrl && (
-                            <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-sm overflow-hidden border-2 border-white shadow-sm bg-gray-100">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={listingImageUrl} alt="" className="w-full h-full object-cover" />
-                            </div>
-                        )}
-                    </div>
 
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold text-gray-800 truncate">
-                                {otherUser?.displayName || 'Unknown'}
-                            </p>
-                            {listing ? (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 shrink-0">
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                                <p className="text-sm font-semibold text-gray-800 truncate">
+                                    {otherUser?.displayName || 'Unknown'}
+                                </p>
+                                {listing ? (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 shrink-0">
                                     {listing.title?.length > 18 ? listing.title.slice(0, 18) + '…' : listing.title}
                                 </span>
-                            ) : (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-400 shrink-0">
+                                ) : (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-400 shrink-0">
                                     DM
                                 </span>
+                                )}
+                            </div>
+                            {listing && listing.price != null && (
+                                <p className="text-xs text-gray-400">${listing.price.toFixed(2)}</p>
                             )}
                         </div>
-                        {listing && listing.price != null && (
-                            <p className="text-xs text-gray-400">${listing.price.toFixed(2)}</p>
-                        )}
-                    </div>
                     </button>
                 </div>
 
@@ -532,8 +538,13 @@ export default function ConversationPage() {
                 </div>
 
                 {/* input */}
-                <div className="px-4 py-3 border-t border-gray-100">
-                    <div className="flex gap-2 items-end">
+                {isArchived ? (
+                    <div className="px-4 py-3 border-t border-gray-100 text-center">
+                        <p className="text-xs text-gray-400">This conversation is archived. You cannot send new messages.</p>
+                    </div>
+                ) : (
+                    <div className="px-4 py-3 border-t border-gray-100">
+                        <div className="flex gap-2 items-end">
                        <textarea
                            ref={textareaRef}
                            value={newMessage}
@@ -543,12 +554,13 @@ export default function ConversationPage() {
                            rows={1}
                            className="flex-1 px-4 py-2 bg-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-black resize-none text-sm leading-5 max-h-32 overflow-y-auto"
                        />
-                        <PillButton onClick={handleSend} disabled={sending || !newMessage.trim()} className="text-sm py-1.5 px-5">
-                            {sending ? '...' : 'Send'}
-                        </PillButton>
+                            <PillButton onClick={handleSend} disabled={sending || !newMessage.trim()} className="text-sm py-1.5 px-5">
+                                {sending ? '...' : 'Send'}
+                            </PillButton>
+                        </div>
+                        {error && <p className="text-red-500 text-xs text-center mt-2">{error}</p>}
                     </div>
-                    {error && <p className="text-red-500 text-xs text-center mt-2">{error}</p>}
-                </div>
+                )}
             </div>
         </div>
     );

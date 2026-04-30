@@ -158,7 +158,7 @@ export function useConversation(conversationId: string, currentUserId: string | 
         let isCancelled = false;
 
         pb.collection('messages')
-            .subscribe('*', handleRealtimeEvent)
+            .subscribe('*', handleRealtimeEvent, { filter: `conversation="${conversationId}"` })
             .then(unsub => {
                 if (isCancelled) unsub();
                 else unsubscribe = unsub;
@@ -189,24 +189,25 @@ export function useConversation(conversationId: string, currentUserId: string | 
             await pb.collection('conversations').update(conversationId, {
                 last_message: body.trim(),
             });
-        } catch {
+        } catch (err) {
             setError('Failed to send message.');
+            throw err;
         } finally {
             setSending(false);
         }
     }, [currentUserId, conversationId]);
 
     const refreshConversation = useCallback(async () => {
-    if (!conversationId || !currentUserId) return;
-    try {
-        const convo = await pb.collection('conversations').getOne(conversationId, {
-            expand: 'buyer,seller,listing',
-        });
-        setConversation(convo);
-    } catch {
-        setError('Failed to refresh conversation.');
-    }
-}, [conversationId, currentUserId]);
+        if (!conversationId || !currentUserId) return;
+        try {
+            const convo = await pb.collection('conversations').getOne(conversationId, {
+                expand: 'buyer,seller,listing',
+            });
+            setConversation(convo);
+        } catch {
+            setError('Failed to refresh conversation.');
+        }
+    }, [conversationId, currentUserId]);
 
     return {
         conversation,

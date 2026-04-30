@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { RecordModel } from 'pocketbase';
 import pb from '../lib/pb';
 
-export function useConversations(currentUserId: string | null) {
+export function useConversations(currentUserId: string | null, archived = false) {
     const [conversations, setConversations] = useState<RecordModel[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -20,10 +20,10 @@ export function useConversations(currentUserId: string | null) {
 
         try {
             const result = await pb.collection('conversations').getFullList({
-                filter: `(buyer="${currentUserId}" && buyer_deleted=false && buyer_archived=false) || (seller="${currentUserId}" && seller_deleted=false && seller_archived=false)`,
+                filter: `(buyer="${currentUserId}" && buyer_deleted=false && buyer_archived=${archived}) || (seller="${currentUserId}" && seller_deleted=false && seller_archived=${archived})`,
+                requestKey: null,
                 expand: 'buyer,seller,listing',
                 sort: '-updated',
-                requestKey: null,
                 signal: abortController?.signal,
             });
             setConversations(result);
@@ -32,7 +32,7 @@ export function useConversations(currentUserId: string | null) {
         } finally {
             setLoading(false);
         }
-    }, [currentUserId]);
+    }, [currentUserId, archived]);
 
     // fetches a single conversation by ID and patches it into local state.
 
@@ -43,8 +43,8 @@ export function useConversations(currentUserId: string | null) {
                 requestKey: conversationId,
             });
             const isVisible = updated.buyer === currentUserId
-                ? !updated.buyer_deleted
-                : !updated.seller_deleted;
+                ? !updated.buyer_deleted && updated.buyer_archived === archived
+                : !updated.seller_deleted && updated.seller_archived === archived;
 
             if (!isVisible) {
                 setConversations(prev => prev.filter(c => c.id !== conversationId));
@@ -67,7 +67,7 @@ export function useConversations(currentUserId: string | null) {
                 setConversations(prev => prev.filter(c => c.id !== conversationId));
             }
         }
-    }, [currentUserId]);
+    }, [currentUserId, archived]);
 
     useEffect(() => {
         const abortController = new AbortController();
@@ -75,8 +75,9 @@ export function useConversations(currentUserId: string | null) {
         return () => abortController.abort();
     }, [fetchConversations]);
 
+    // only subscribe to realtime updates for the inbox (non-archived) tab.
     useEffect(() => {
-        if (!currentUserId) return;
+        if (!currentUserId || archived) return;
 
         let unsubscribe: (() => void) | null = null;
         let isCancelled = false;

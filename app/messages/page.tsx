@@ -7,18 +7,36 @@ import pb from '../lib/pb';
 import { formatRelativeTime } from '../lib/formatTime';
 import { getBlockedUserIds, getBlockedByUserIds } from '../lib/blockUtils';
 import Link from "next/link";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function MessagesPage() {
+type Tab = 'inbox' | 'archived';
+
+function MessagesContent() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const activeTab: Tab = searchParams.get('tab') === 'archived' ? 'archived' : 'inbox';
+    // only fetch archived once the tab has been opened for the first time
+    const [archivedEverOpened, setArchivedEverOpened] = useState(activeTab === 'archived');
+
     const currentUserId = useCurrentUser();
     const { conversations, loading } = useConversations(currentUserId);
+    const { conversations: archivedConversations, loading: archivedLoading } = useConversations(
+        archivedEverOpened ? currentUserId : null,
+        true
+    );
     const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
     const [blockedByUserIds, setBlockedByUserIds] = useState<string[]>([]);
+
+    const handleTabChange = (tab: Tab) => {
+        if (tab === 'archived') setArchivedEverOpened(true);
+        router.replace(`/messages?tab=${tab}`, { scroll: false });
+    };
 
     // Get list of blocked users and users who blocked current user
     useEffect(() => {
         if (!currentUserId) return;
-        
+
         Promise.all([
             getBlockedUserIds(currentUserId),
             getBlockedByUserIds(currentUserId)
@@ -29,10 +47,17 @@ export default function MessagesPage() {
     }, [currentUserId]);
 
     // Filter out conversations with blocked users AND users who blocked current user
-    const visibleConversations = conversations.filter(convo => {
-        const otherUserId = convo.buyer === currentUserId ? convo.seller : convo.buyer;
-        return !blockedUserIds.includes(otherUserId) && !blockedByUserIds.includes(otherUserId);
-    });
+    const filterBlocked = (list: RecordModel[]) =>
+        list.filter(convo => {
+            const otherUserId = convo.buyer === currentUserId ? convo.seller : convo.buyer;
+            return !blockedUserIds.includes(otherUserId) && !blockedByUserIds.includes(otherUserId);
+        });
+
+    const visibleConversations = filterBlocked(conversations);
+    const visibleArchived = filterBlocked(archivedConversations);
+
+    const isLoading = activeTab === 'inbox' ? loading : archivedLoading;
+    const displayList = activeTab === 'inbox' ? visibleConversations : visibleArchived;
 
     if (!currentUserId) {
         return (
@@ -42,14 +67,6 @@ export default function MessagesPage() {
                     <a href="/auth" className="text-blue-600 hover:underline">log in</a>{' '}
                     to view your messages.
                 </p>
-            </div>
-        );
-    }
-
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-100">
-                <p className="text-gray-500">Loading...</p>
             </div>
         );
     }
@@ -69,15 +86,43 @@ export default function MessagesPage() {
             <div className="max-w-lg mx-auto">
                 <div className="mb-6 pt-6">
                     <h1 className="text-2xl font-bold text-gray-800">Messages</h1>
+                    <div className="flex gap-1 mt-4 border-b border-gray-200">
+                        <button
+                            onClick={() => handleTabChange('inbox')}
+                            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                                activeTab === 'inbox'
+                                    ? 'border-blue-600 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
+                        >
+                            Inbox
+                        </button>
+                        <button
+                            onClick={() => handleTabChange('archived')}
+                            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                                activeTab === 'archived'
+                                    ? 'border-blue-600 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
+                        >
+                            Archived
+                        </button>
+                    </div>
                 </div>
 
-                {visibleConversations.length === 0 ? (
+                {isLoading ? (
                     <div className="bg-white rounded-xl shadow-md p-8 text-center">
-                        <p className="text-gray-500">No conversations yet.</p>
+                        <p className="text-gray-500">Loading...</p>
+                    </div>
+                ) : displayList.length === 0 ? (
+                    <div className="bg-white rounded-xl shadow-md p-8 text-center">
+                        <p className="text-gray-500">
+                            {activeTab === 'inbox' ? 'No conversations yet.' : 'No archived conversations.'}
+                        </p>
                     </div>
                 ) : (
                     <div className="bg-white rounded-xl shadow-md divide-y divide-gray-100 overflow-hidden">
-                        {visibleConversations.map((convo) => {
+                        {displayList.map((convo) => {
                             const otherUser = getOtherUser(convo);
                             const avatarUrl = getAvatarUrl(otherUser);
                             const listing = convo.expand?.listing;
@@ -153,5 +198,17 @@ export default function MessagesPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function MessagesPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gray-100">
+                <p className="text-gray-500">Loading...</p>
+            </div>
+        }>
+            <MessagesContent />
+        </Suspense>
     );
 }
