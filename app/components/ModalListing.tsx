@@ -1,13 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo } from "react";
+import {useEffect, useMemo, useState} from "react";
 import {
     ChevronLeft,
     ChevronRight,
     Leaf,
     MapPin,
-    MessageCircleMore,
+    MessageCircleMore, Share2,
     ShoppingBag,
     Star,
     X,
@@ -15,7 +15,9 @@ import {
 import { useIsListing } from "@/app/providers/ListingProvider";
 import pb from "@/app/lib/pb";
 import Link from "next/link";
-import {useStartConversation} from "@/app/hooks";
+import {useCurrentUser, useStartConversation} from "@/app/hooks";
+import {toast} from "react-toastify";
+import {useIsLogin} from "@/app/providers/LoginProvider";
 
 type ListingRecord = {
     id: string;
@@ -95,6 +97,9 @@ export default function ModalListing() {
         closeListing,
     } = useIsListing();
 
+    const {setIsOnLogin} = useIsLogin();
+    const currentUser = useCurrentUser();
+
     useEffect(() => {
         if (!open) return;
 
@@ -113,25 +118,89 @@ export default function ModalListing() {
         };
     }, [open, closeListing, nextImage, previousImage]);
 
+    const [isOfferOpen, setIsOfferOpen] = useState(false);
+    const [offerAmount, setOfferAmount] = useState("0");
+
     const images = useMemo(() => {
         if (!data) return [];
         return getListingImages(data.listing as ListingRecord);
     }, [data]);
 
+    useEffect(() => {
+        if (!open) {
+            setIsOfferOpen(false);
+            setOfferAmount("0");
+        }
+    }, [open]);
+
     const handleBuy = () => {
-
+        if (!currentUser){
+            closeListing();
+            setIsOnLogin(true);
+            return;
+        }
+        startConversation(listing.id, listing.price);
     }
+
     const handleOffer = () => {
+        if (!currentUser){
+            closeListing();
+            setIsOnLogin(true);
+            return;
+        }
+        setOfferAmount("0");
+        setIsOfferOpen(true);
+    };
 
-    }
+    const closeOfferModal = () => {
+        setIsOfferOpen(false);
+        setOfferAmount("0");
+    };
+
+    const handleConfirmOffer = () => {
+        if (!data) return;
+
+        const parsedOfferAmount = Math.max(0, Number(offerAmount) || 0);
+        startConversation((data.listing as ListingRecord).id, parsedOfferAmount);
+        closeOfferModal();
+    };
 
     const { startConversation, loading: messagingLoading } = useStartConversation(data?.seller.id || "");
+
+    const handleShare = async () => {
+        if (!data || typeof window === "undefined") return;
+
+        const listing = data.listing as ListingRecord;
+        const shareUrl = window.location.href;
+        const shareData = {
+            title: listing.title,
+            text: `Check out ${listing.title} for ${formatPrice(listing.price)} on Neighborhood Eats.`,
+            url: shareUrl,
+        };
+
+        try {
+            if (navigator.share) {
+                await navigator.share(shareData);
+                toast.success("Link copied to clipboard!");
+                return;
+            }
+
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(shareUrl);
+                toast.success("Link copied to clipboard!");
+            }
+        } catch (error) {
+            if ((error as Error)?.name === "AbortError") return;
+            toast.error("Failed to share listing. Please try again.");
+            console.error("Share failed", error);
+        }
+    };
 
     if (!open) return null;
 
     if (loading) {
         return (
-            <div className="absolute z-50 grid place-items-center bg-black/40 p-4">
+            <div className="fixed w-full h-full z-50 grid place-items-center bg-black/40 p-4">
                 <div className="w-full max-w-[560px] rounded-[32px] bg-white p-10 text-center shadow-2xl">
                     <div className="text-lg font-medium text-neutral-500">Loading listing...</div>
                 </div>
@@ -312,7 +381,7 @@ export default function ModalListing() {
 
                             <div className="grid grid-cols-1 gap-4 pt-1 sm:grid-cols-2">
                                 <button
-                                    onClick={() => startConversation(listing.id, listing.price)}
+                                    onClick={() => handleBuy()}
                                     disabled={messagingLoading}
                                     type="button"
                                     className="inline-flex min-h-[84px] items-center justify-center gap-3 rounded-[18px] bg-[#f97316] px-6 text-[20px] font-semibold text-white shadow-sm transition hover:bg-[#ea6a12]"
@@ -328,6 +397,15 @@ export default function ModalListing() {
                                 >
                                     <MessageCircleMore className="h-5 w-5" />
                                     Make Offer
+                                </button>
+                                <button
+                                    onClick={handleShare}
+                                    type="button"
+                                    aria-label="Share listing"
+                                    title="Share listing"
+                                    className="inline-flex h-12 w-12 shrink-0 items-center justify-center self-center rounded-full text-neutral-600 transition hover:bg-neutral-100 hover:text-neutral-600" // ADDED
+                                >
+                                    <Share2 className="h-4.5 w-4.5" />
                                 </button>
                             </div>
 
@@ -348,6 +426,59 @@ export default function ModalListing() {
                         </div>
                     </div>
                 </div>
+                {isOfferOpen && (
+                    <div
+                        className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+                        onClick={closeOfferModal}
+                    >
+                        <div
+                            className="w-full max-w-md rounded-[24px] bg-white p-6 shadow-2xl sm:p-7"
+                            onClick={(event) => event.stopPropagation()}
+                        >
+                            <h3 className="text-[28px] font-semibold text-neutral-950">Make Offer</h3>
+                            <p className="mt-2 text-[16px] text-neutral-600">Enter your offer amount.</p>
+
+                            <label className="mt-6 block">
+                                <span className="mb-2 block text-[15px] font-medium text-neutral-700">Offer amount</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    value={offerAmount}
+                                    onChange={(event) => {
+                                        const nextValue = event.target.value;
+                                        if (nextValue === "") {
+                                            setOfferAmount("");
+                                            return;
+                                        }
+
+                                        setOfferAmount(String(Math.max(0, Number(nextValue) || 0)));
+                                    }}
+                                    className="w-full rounded-[16px] border border-black/10 px-4 py-3 text-[18px] text-neutral-900 outline-none transition focus:border-[#f97316]"
+                                    placeholder="0.00"
+                                />
+                            </label>
+
+                            <div className="mt-6 grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={handleConfirmOffer}
+                                    disabled={messagingLoading}
+                                    className="inline-flex min-h-[56px] items-center justify-center rounded-[16px] bg-[#f97316] px-4 text-[18px] font-semibold text-white transition hover:bg-[#ea6a12] disabled:cursor-not-allowed disabled:opacity-70"
+                                >
+                                    Confirm
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={closeOfferModal}
+                                    className="inline-flex min-h-[56px] items-center justify-center rounded-[16px] border border-black/10 bg-white px-4 text-[18px] font-semibold text-neutral-700 transition hover:bg-neutral-50"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

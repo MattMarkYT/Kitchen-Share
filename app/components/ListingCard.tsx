@@ -7,6 +7,8 @@ import {Check, Heart, MapPin, Share2, Star} from "lucide-react";
 import React, { useState } from "react";
 import { useCurrentUser } from "@/app/hooks";
 import {toast} from "react-toastify";
+import {useIsListing} from "@/app/providers/ListingProvider";
+import {useIsLogin} from "@/app/providers/LoginProvider";
 
 
 export function ListingCard({ listing, favoriteIds, onUnfavorite }: { listing: Listing; favoriteIds?: Map<string, string>; onUnfavorite?: () => void }) {
@@ -16,6 +18,7 @@ export function ListingCard({ listing, favoriteIds, onUnfavorite }: { listing: L
         () => favoriteIds?.get(listing.id) ?? null
     );
     const [isPending, setIsPending] = useState(false);
+    const {openListing} = useIsListing();
 
     const copyLinkToast = () => toast.success("Link Copied!");
     const copyLinkFailedToast = () => toast.error("Failed to copy link!");
@@ -74,9 +77,14 @@ export function ListingCard({ listing, favoriteIds, onUnfavorite }: { listing: L
         }
     };
 
+    const handleClick = (e) => {
+        e.preventDefault();
+        openListing(listing.id);
+    }
+
     return (
         <li className="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
-            <Link href={`/listing/${listing.id}`} className="block">
+            <Link href={`/listing/${listing.id}`} onClick={handleClick} className="block">
                 <div className="relative aspect-[4/3] overflow-hidden bg-stone-100">
                     <img
                         src={imgUrl}
