@@ -1,7 +1,7 @@
 "use client"
 
 import {ChangeEvent, FormEvent, useCallback, useEffect, useState} from "react";
-import {useRouter} from "next/navigation";
+import {usePathname, useRouter} from "next/navigation";
 import pb from "@/app/lib/pb";
 import {ClientResponseError} from "pocketbase";
 import {useIsLogin} from "@/app/providers/LoginProvider";
@@ -110,11 +110,16 @@ export default function ModalLogin() {
         setShowPasswordConfirm(false);
     };
 
+    const pathname = usePathname();
+    useEffect(() => {
+        if (isOnLogin) setIsOnLogin(false);
+    }, [pathname]);
+
     if (!isOnLogin) return null;
 
     return (
         <div
-            className="fixed inset-0 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 flex items-center justify-center p-4 z-40"
             role="dialog"
             aria-modal="true"
         >
