@@ -13,6 +13,7 @@ export const CATEGORY_OPTIONS: { value: string; label: string }[] = [
     { value: "drinks",      label: "Drinks" },
     { value: "vegan",       label: "Vegan" },
     { value: "comfort",     label: "Comfort Food" },
+    { value: "other",     label: "Other" },
 ];
 
 export const CATEGORIES = CATEGORY_OPTIONS.map(c => c.value);
