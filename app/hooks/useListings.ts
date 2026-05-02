@@ -60,7 +60,8 @@ export function useListings({ city, state, enabled = true, excludeSeller, catego
                         expand: "seller",
                         sort: "-created",
                         filter,
-                        fields: "id,collectionId,main_image,title,price,location,seller,expand.seller.rating",
+                        fields: "id,collectionId,main_image,title,price,location,category," +
+                            "seller,expand.seller.id,expand.seller.rating,expand.seller.displayName,expand.seller.avatar,expand.seller.collectionId,expand.seller.collectionName",
                         requestKey: "useListings",
                     }),
                     getCachedBlockedIds(currentUserId),

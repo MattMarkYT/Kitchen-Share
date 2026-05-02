@@ -16,7 +16,12 @@ export interface Listing extends RecordModel {
     quantity?: number;
     expand?: {
         seller?: {
+            id?: string | null;
+            collectionId?: string | null;
+            collectionName?: string | null;
             rating?: number | null;
+            displayName?: string | null;
+            avatar?: string | null;
         };
     };
 }
