@@ -170,8 +170,9 @@ export default function ConversationPage() {
             const sellerId = conversation.seller;
             const listingId = conversation.expand?.listing?.id;
 
-            if(!sellerId || !listingId) {
-                throw new Error("Seller or listing information is missing.");
+            if (!sellerId || !listingId) {
+                setRatingError('Seller or listing information is missing.');
+                return;
             }
 
             if(conversation.buyerRated){
@@ -341,11 +342,11 @@ export default function ConversationPage() {
                             View Listing
                         </button>
                     )}
-                    {isBuyer && !saleStatus && !isArchived && (
+                    {(!listing ? !isArchived : isBuyer && !saleStatus && !isArchived) && (
                         <div className="flex items-center gap-1.5">
                             {showCancelConfirm ? (
                                 <>
-                                    <span className="text-xs text-gray-400 mr-1">Cancel request?</span>
+                                    <span className="text-xs text-gray-400 mr-1">{listing ? 'Cancel request?' : 'Delete DM?'}</span>
                                     <button
                                         type="button"
                                         onClick={() => setShowCancelConfirm(false)}
@@ -370,7 +371,7 @@ export default function ConversationPage() {
                                     onClick={() => setShowCancelConfirm(true)}
                                     className="px-4 py-2 rounded-xl border border-red-200 text-sm font-semibold text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors"
                                 >
-                                    Cancel Request
+                                    {listing ? 'Cancel Request' : 'Delete DM'}
                                 </button>
                             )}
                         </div>

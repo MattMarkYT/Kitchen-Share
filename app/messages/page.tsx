@@ -40,17 +40,21 @@ function AutoSelectOrEmpty() {
 
     const previewListings = listings.slice(0, 4);
 
-    // Redirect to most recent conversation if one exists
+    // Redirect to most recent offer
+    const mostRecentOffer = conversations.find(
+        c => !!c.listing && !c.buyer_archived && !c.seller_archived
+    );
+
     useEffect(() => {
-        if (loading || !conversations.length) return;
-        router.replace(`/messages/${conversations[0].id}`);
-    }, [conversations, loading, router]);
+        if (loading || !mostRecentOffer) return;
+        router.replace(`/messages/${mostRecentOffer.id}`);
+    }, [mostRecentOffer, loading, router]);
 
     // Still loading conversations — show nothing yet
     if (loading) return <div className="flex-1 bg-gray-50" />;
 
-    // Has conversations — redirect will kick in, show blank
-    if (conversations.length > 0) return <div className="flex-1 bg-gray-50" />;
+    // Has a redirect target — blank while navigating
+    if (mostRecentOffer) return <div className="flex-1 bg-gray-50" />;
 
     return (
         <div className="flex-1 overflow-y-auto bg-gray-50">
