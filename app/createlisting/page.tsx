@@ -1,13 +1,14 @@
 'use client';
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import pb from "@/app/lib/pb";
 import { ClientResponseError } from "pocketbase";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/app/hooks";
 import { CATEGORY_OPTIONS } from "@/app/types/categories";
 import { setAuthRedirect } from "@/app/api/authRedirect";
+import usLocations from "@/app/lib/us-locations.json";
+import { MapPin, Clock3, Heart, Share2 } from "lucide-react";
 
-const ALLERGY_OPTIONS = ["Gluten", "Dairy", "Nuts", "Eggs", "Soy", "Shellfish", "Fish", "Wheat"];
 const MAX_PHOTOS = 6;
 const MAX_TITLE = 60;
 const MAX_DESC = 500;
@@ -27,15 +28,25 @@ export default function CreateListing() {
     const [previews, setPreviews] = useState<string[]>([]);
     const [price, setPrice] = useState("");
     const [title, setTitle] = useState("");
-    const [location, setLocation] = useState("");
+    const [locationState, setLocationState] = useState("");
+    const [locationCity, setLocationCity] = useState("");
     const [category, setCategory] = useState("");
     const [additionalTags, setAdditionalTags] = useState("");
     const [description, setDescription] = useState("");
-    const [allergies, setAllergies] = useState<string[]>([]);
     const [errors, setErrors] = useState<Errors>({});
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [confirmed, setConfirmed] = useState(false);
+
+    const usStates = usLocations.states;
+    const availableCities = useMemo(() =>
+        locationState ? (usLocations.cities[locationState as keyof typeof usLocations.cities] ?? []).map(name => ({ name })) : [],
+        [locationState]);
+
+    const handleCityChange = useCallback((city: string) => {
+        setLocationCity(city);
+        setErrors(p => ({ ...p, location: undefined }));
+    }, [setErrors]);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const currentUserId = useCurrentUser();
@@ -46,6 +57,15 @@ export default function CreateListing() {
             router.push("/auth");
         }
     }, [currentUserId, router]);
+
+    // Pre-populate location from the user's profile
+    useEffect(() => {
+        const record = pb.authStore.record;
+        if (record) {
+            if (record.state) setLocationState(record.state);
+            if (record.city) setLocationCity(record.city);
+        }
+    }, []);
 
     if (!currentUserId) {
         return (
@@ -70,17 +90,11 @@ export default function CreateListing() {
         setPreviews(prev => prev.filter((_, i) => i !== index));
     }
 
-    function toggleAllergy(tag: string) {
-        setAllergies(prev =>
-            prev.includes(tag) ? prev.filter(a => a !== tag) : [...prev, tag]
-        );
-    }
-
     function validate(): boolean {
         const newErrors: Errors = {};
         if (!title.trim()) newErrors.title = "Title is required";
         if (!price || isNaN(Number(price)) || Number(price) < 0) newErrors.price = "Valid price is required";
-        if (!location.trim()) newErrors.location = "Location is required";
+        if (!locationCity.trim()) newErrors.location = "City is required";
         if (!category.trim()) newErrors.category = "Category is required";
         if (images.length === 0) newErrors.images = "Please upload at least one photo";
         setErrors(newErrors);
@@ -96,11 +110,10 @@ export default function CreateListing() {
             const data = new FormData();
             data.append("title", title.trim());
             data.append("price", price);
-            data.append("location", location.trim());
+            data.append("location", locationCity.trim());
             data.append("category", category);
             data.append("tags", additionalTags.trim());
             data.append("description", description.trim());
-            data.append("allergies", !allergies.length ? "None" : allergies.join(", "));
             data.append("seller", pb.authStore.record?.id ?? "");
             data.append("is_available", "true");
 
@@ -123,9 +136,6 @@ export default function CreateListing() {
             setSubmitting(false);
         }
     }
-
-    const displayPrice = price && !isNaN(Number(price)) ? `$${Number(price).toFixed(2)}` : "$0.00";
-    const displayTitle = title.trim() || "Your listing title";
 
     return (
         <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "'Inter', sans-serif" }}>
@@ -255,13 +265,31 @@ export default function CreateListing() {
                             </div>
                             <div>
                                 <FieldLabel required>Location</FieldLabel>
-                                <input
-                                    type="text"
-                                    placeholder="e.g. Downtown LA"
-                                    value={location}
-                                    onChange={e => { setLocation(e.target.value); setErrors(p => ({ ...p, location: undefined })); }}
-                                    style={inputStyle(!!errors.location)}
-                                />
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+                                    <div>
+                                        <select
+                                            value={locationState}
+                                            onChange={e => {
+                                                setLocationState(e.target.value);
+                                                setLocationCity("");
+                                                setErrors(p => ({ ...p, location: undefined }));
+                                            }}
+                                            style={inputStyle(false)}
+                                        >
+                                            <option value="">Select state…</option>
+                                            {usStates.map(s => (
+                                                <option key={s.isoCode} value={s.isoCode}>{s.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <CityCombobox
+                                        cities={availableCities}
+                                        value={locationCity}
+                                        onChange={handleCityChange}
+                                        disabled={!locationState}
+                                        hasError={!!errors.location}
+                                    />
+                                </div>
                                 <p style={{ fontSize: "0.75rem", color: "#9ca3af", marginTop: 4 }}>Where is your food available for pickup?</p>
                                 {errors.location && <ErrMsg>{errors.location}</ErrMsg>}
                             </div>
@@ -318,34 +346,6 @@ export default function CreateListing() {
                         </div>
                     </Section>
 
-                    {/* ── SECTION 4: Dietary ── */}
-                    <Section number={4} title="Dietary Information">
-                        <FieldLabel>Allergy & Dietary Tags <span style={{ color: "#9ca3af", fontWeight: 400 }}>(optional)</span></FieldLabel>
-                        <p style={{ fontSize: "0.8rem", color: "#6b7280", marginBottom: "0.6rem" }}>Select all that apply</p>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                            {ALLERGY_OPTIONS.map(tag => (
-                                <button
-                                    key={tag}
-                                    type="button"
-                                    onClick={() => toggleAllergy(tag)}
-                                    style={{
-                                        padding: "0.35rem 1rem",
-                                        borderRadius: 999,
-                                        border: allergies.includes(tag) ? "1.5px solid #111" : "1.5px solid #d1d5db",
-                                        background: allergies.includes(tag) ? "#111" : "#fff",
-                                        color: allergies.includes(tag) ? "#fff" : "#374151",
-                                        fontSize: "0.85rem",
-                                        cursor: "pointer",
-                                        fontFamily: "inherit",
-                                        transition: "all 0.15s",
-                                    }}
-                                >
-                                    {tag}
-                                </button>
-                            ))}
-                        </div>
-                    </Section>
-
                     {/* ── Confirmation checkbox + Submit ── */}
                     <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: "1.5rem", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1.5rem" }}>
                         <label style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start", cursor: "pointer", flex: 1 }}>
@@ -397,35 +397,15 @@ export default function CreateListing() {
                 <div style={{ position: "sticky", top: "1.5rem" }}>
 
                     {/* Preview card */}
-                    <div style={{
-                        background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb",
-                        overflow: "hidden", marginBottom: "1.25rem",
-                    }}>
-                        <div style={{
-                            background: "#f3f4f6", height: 160,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            overflow: "hidden",
-                        }}>
-                            {previews[0] ? (
-                                <img src={previews[0]} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                            ) : (
-                                <svg width="48" height="48" fill="none" stroke="#9ca3af" strokeWidth={1} viewBox="0 0 24 24">
-                                    <path d="M12 3c-1 3-4 4-4 8a4 4 0 008 0c0-4-3-5-4-8z" />
-                                    <path d="M8.5 15.5s.5 2.5 3.5 2.5 3.5-2.5 3.5-2.5" />
-                                    <circle cx="12" cy="7" r="1" fill="#9ca3af" />
-                                </svg>
-                            )}
-                        </div>
-                        <div style={{ padding: "0.85rem 1rem" }}>
-                            <p style={{ fontSize: "0.7rem", color: "#9ca3af", marginBottom: 6 }}>Preview your listing</p>
-                            <div style={{ height: 10, background: "#f3f4f6", borderRadius: 4, marginBottom: 6, width: "80%" }} />
-                            <div style={{ height: 10, background: "#f3f4f6", borderRadius: 4, marginBottom: 12, width: "55%" }} />
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontWeight: 700, fontSize: "1rem", color: "#111" }}>{displayPrice}</span>
-                                <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>Your location</span>
-                            </div>
-                        </div>
-                    </div>
+                    <p style={{ fontSize: "0.75rem", color: "#9ca3af", marginBottom: "0.5rem", textAlign: "center" }}>Live preview</p>
+                    <ListingCardPreview
+                        title={title.trim() || "Your listing title"}
+                        price={price && !isNaN(Number(price)) ? Number(price) : 0}
+                        location={locationCity || "Your city"}
+                        category={category}
+                        imageUrl={previews[0] || null}
+                        sellerName={pb.authStore.record?.displayName || "You"}
+                    />
 
                     {/* Tips */}
                     <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", padding: "1rem" }}>
@@ -452,6 +432,156 @@ export default function CreateListing() {
 }
 
 /* ── Small helper components ── */
+
+function ListingCardPreview({ title, price, location, category, imageUrl, sellerName }: {
+    title: string;
+    price: number;
+    location: string;
+    category: string;
+    imageUrl: string | null;
+    sellerName: string;
+}) {
+    const badgeOption = CATEGORY_OPTIONS.find(c => (typeof c === "string" ? c : c.value) === category);
+    const badgeLabel = badgeOption ? (typeof badgeOption === "string" ? badgeOption : badgeOption.label) : null;
+    const badgeClass = badgeLabel === "Popular"
+        ? "bg-violet-100 text-violet-700"
+        : "bg-lime-100 text-lime-700";
+    const initials = sellerName.slice(0, 2).toUpperCase();
+
+    return (
+        <div className="overflow-hidden rounded-[24px] border border-stone-200 bg-white shadow-[0_8px_24px_rgba(28,25,23,0.06)] mb-5">
+            {/* Image */}
+            <div className="relative overflow-hidden bg-stone-100" style={{ aspectRatio: "1.5/1" }}>
+                {imageUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={imageUrl} alt="Preview" className="h-full w-full object-cover" />
+                ) : (
+                    <div className="h-full w-full flex items-center justify-center text-stone-300">
+                        <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth={1} viewBox="0 0 24 24">
+                            <rect x="3" y="3" width="18" height="18" rx="3" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <path d="M21 15l-5-5L5 21" />
+                        </svg>
+                    </div>
+                )}
+                {badgeLabel && (
+                    <div className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-sm backdrop-blur-sm ${badgeClass}`}>
+                        {badgeLabel}
+                    </div>
+                )}
+                <button type="button" disabled className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center text-stone-700 opacity-60">
+                    <Heart className="h-6 w-6 stroke-[2.2] fill-none text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
+                </button>
+                <div className="absolute bottom-3 right-3 rounded-full bg-white px-3 py-1 text-xs font-bold text-stone-900 shadow-sm">
+                    ${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+            </div>
+
+            {/* Info */}
+            <div className="space-y-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                        <h3 className="truncate text-base font-semibold text-stone-900">{title}</h3>
+                        <div className="mt-1 flex items-center gap-1 text-xs text-stone-500">
+                            <MapPin className="h-3.5 w-3.5" />
+                            <span className="truncate">{location}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 text-xs text-stone-500">
+                    <div className="inline-flex items-center gap-1.5">
+                        <Clock3 className="h-3.5 w-3.5" />
+                        <span>Available now</span>
+                    </div>
+                    <button type="button" disabled className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-400">
+                        <Share2 className="h-3.5 w-3.5" />
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-2 border-t border-stone-100 pt-3">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-stone-200 text-[10px] font-semibold text-stone-600 shrink-0">
+                        {initials}
+                    </div>
+                    <span className="truncate text-xs font-medium text-stone-700">{sellerName}</span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function CityCombobox({ cities, value, onChange, disabled, hasError }: {
+    cities: { name: string }[];
+    value: string;
+    onChange: (city: string) => void;
+    disabled?: boolean;
+    hasError?: boolean;
+}) {
+    const [input, setInput] = useState(value);
+    const [open, setOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef(input);
+
+    useEffect(() => { inputRef.current = input; }, [input]);
+    useEffect(() => { setInput(value); }, [value]);
+
+    const filtered = useMemo(() => {
+        const q = input.trim().toLowerCase();
+        if (!q) return cities.slice(0, 50);
+        return cities.filter(c => c.name.toLowerCase().startsWith(q)).slice(0, 50);
+    }, [input, cities]);
+
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+                setOpen(false);
+                const match = cities.find(c => c.name.toLowerCase() === inputRef.current.trim().toLowerCase());
+                if (!match) { setInput(''); onChange(''); }
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [cities, onChange]);
+
+    return (
+        <div ref={containerRef} style={{ position: "relative" }}>
+            <input
+                type="text"
+                value={input}
+                disabled={disabled}
+                placeholder={disabled ? 'Select state first' : 'Type a city…'}
+                style={{
+                    ...inputStyle(!!hasError),
+                    background: disabled ? "#f9fafb" : "#fff",
+                    color: disabled ? "#9ca3af" : "#111",
+                }}
+                onChange={e => { setInput(e.target.value); setOpen(true); }}
+                onFocus={() => { if (!disabled) setOpen(true); }}
+            />
+            {open && !disabled && filtered.length > 0 && (
+                <ul style={{
+                    position: "absolute", zIndex: 20, marginTop: 4, width: "100%",
+                    background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8,
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.08)", maxHeight: 192,
+                    overflowY: "auto", fontSize: "0.875rem", listStyle: "none",
+                    padding: 0, margin: "4px 0 0",
+                }}>
+                    {filtered.map(c => (
+                        <li
+                            key={c.name}
+                            onMouseDown={() => { setInput(c.name); onChange(c.name); setOpen(false); }}
+                            style={{ padding: "0.5rem 0.75rem", cursor: "pointer", color: "#374151" }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "#eff6ff")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "")}
+                        >
+                            {c.name}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
 
 function Section({ number, title, subtitle, children }: {
     number: number; title: string; subtitle?: string; children: React.ReactNode;
