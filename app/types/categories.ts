@@ -1,19 +1,19 @@
 
-export const CATEGORY_OPTIONS: { value: string; label: string }[] = [
-    { value: "pizza",       label: "Pizza" },
-    { value: "burgers",     label: "Burgers" },
-    { value: "bbq",         label: "BBQ" },
-    { value: "tacos",       label: "Tacos" },
-    { value: "sandwiches",  label: "Sandwiches" },
-    { value: "pasta",       label: "Pasta" },
-    { value: "seafood",     label: "Seafood" },
-    { value: "salads",      label: "Salads" },
-    { value: "breakfast",   label: "Breakfast" },
-    { value: "desserts",    label: "Desserts" },
-    { value: "drinks",      label: "Drinks" },
-    { value: "vegan",       label: "Vegan" },
-    { value: "comfort",     label: "Comfort Food" },
-    { value: "other",     label: "Other" },
+export const CATEGORY_OPTIONS: { value: string; label: string; emoji: string }[] = [
+    { value: "pizza",       label: "Pizza",        emoji: "🍕" },
+    { value: "burgers",     label: "Burgers",      emoji: "🍔" },
+    { value: "bbq",         label: "BBQ",          emoji: "🍖" },
+    { value: "tacos",       label: "Tacos",        emoji: "🌮" },
+    { value: "sandwiches",  label: "Sandwiches",   emoji: "🥪" },
+    { value: "pasta",       label: "Pasta",        emoji: "🍝" },
+    { value: "seafood",     label: "Seafood",      emoji: "🦞" },
+    { value: "salads",      label: "Salads",       emoji: "🥗" },
+    { value: "breakfast",   label: "Breakfast",    emoji: "🍳" },
+    { value: "desserts",    label: "Desserts",     emoji: "🍰" },
+    { value: "drinks",      label: "Drinks",       emoji: "🧃" },
+    { value: "vegan",       label: "Vegan",        emoji: "🥦" },
+    { value: "comfort",     label: "Comfort Food", emoji: "🍲" },
+    { value: "other",       label: "Other",        emoji: "🍽️" },
 ];
 
 export const CATEGORIES = CATEGORY_OPTIONS.map(c => c.value);

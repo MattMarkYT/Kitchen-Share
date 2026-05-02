@@ -8,6 +8,7 @@ import { CATEGORY_OPTIONS } from "@/app/types/categories";
 import { setAuthRedirect } from "@/app/api/authRedirect";
 import usLocations from "@/app/lib/us-locations.json";
 import { MapPin, Clock3, Heart, Share2 } from "lucide-react";
+import { useLocation } from "@/app/providers/LocationProvider";
 
 const MAX_PHOTOS = 6;
 const MAX_TITLE = 60;
@@ -23,7 +24,7 @@ type Errors = {
 
 export default function CreateListing() {
     const router = useRouter();
-
+    const { city: contextCity, state: contextState } = useLocation();
     const [images, setImages] = useState<File[]>([]);
     const [previews, setPreviews] = useState<string[]>([]);
     const [price, setPrice] = useState("");
@@ -58,14 +59,11 @@ export default function CreateListing() {
         }
     }, [currentUserId, router]);
 
-    // Pre-populate location from the user's profile
+    // Pre-populate location from the LocationContext (reflects any picker changes)
     useEffect(() => {
-        const record = pb.authStore.record;
-        if (record) {
-            if (record.state) setLocationState(record.state);
-            if (record.city) setLocationCity(record.city);
-        }
-    }, []);
+        if (contextState) setLocationState(contextState);
+        if (contextCity) setLocationCity(contextCity);
+    }, [contextCity, contextState]);
 
     if (!currentUserId) {
         return (

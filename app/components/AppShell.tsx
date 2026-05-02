@@ -7,6 +7,7 @@ import ModalLogin from "@/app/components/ModalLogin";
 import ModalListing from "@/app/components/ModalListing";
 import {LoginProvider} from "@/app/providers/LoginProvider";
 import {ListingProvider} from "@/app/providers/ListingProvider";
+import {LocationProvider} from "@/app/providers/LocationProvider";
 
 export default function AppShell({
                                      children,
@@ -18,6 +19,7 @@ export default function AppShell({
     return (
         <LoginProvider>
             <ListingProvider>
+                <LocationProvider>
                 <div className="flex flex-row">
                     <Sidebar isOpen={sidebarOpen} setIsOpenAction={setSidebarOpen} />
 
@@ -28,6 +30,7 @@ export default function AppShell({
                         {children}
                     </div>
                 </div>
+                </LocationProvider>
             </ListingProvider>
         </LoginProvider>
     );

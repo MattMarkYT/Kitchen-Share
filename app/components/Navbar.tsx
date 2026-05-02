@@ -6,12 +6,13 @@ import Link from "next/link";
 import pb from "../lib/pb";
 import { useCurrentUser } from "../hooks";
 import SearchBar from "@/app/components/SearchBar";
+import LocationPicker from "@/app/components/LocationPicker";
 import {ChevronDown, User, LogOut, Heart, Map, Info, Plus, MessageCircle, LayoutList, Menu} from "lucide-react";
 import PillButton from "@/app/components/PillButton";
-import {setAuthRedirect} from "@/app/api/authRedirect";
 import IconButton from "@/app/components/IconButton";
 import {useIsMobile} from "@/app/hooks/useIsMobile";
 import {useIsLogin} from "@/app/providers/LoginProvider";
+import {useLocation} from "@/app/providers/LocationProvider";
 import {useGSAP} from "@gsap/react";
 import gsap from "gsap";
 
@@ -31,11 +32,11 @@ export default function Navbar({ sidebarOpen, onToggleSidebar }: NavbarProps) {
     const currentUserId = useCurrentUser();
     const isMobile = useIsMobile();
     const {setIsOnLogin} = useIsLogin();
+    const { city, state, setLocation } = useLocation();
 
     const [user, setUser] = useState<UserRecord | null>(null);
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
-    const [searchOpen, setSearchOpen] = useState(false);
 
     const handleLoginRequired = (e: any) => {
         if (currentUserId) return;
@@ -134,8 +135,11 @@ export default function Navbar({ sidebarOpen, onToggleSidebar }: NavbarProps) {
                         className="shrink-0 transition-opacity hover:opacity-80">
                         {logo}
                     </Link>
-                    <div className="order-3 w-full sm:order-2 sm:w-auto sm:flex-1 sm:flex sm:justify-center">
+                    <div className="order-3 w-full sm:order-2 sm:w-auto sm:flex-1 sm:flex sm:justify-center sm:items-center sm:gap-3">
                         <SearchBar />
+                        <div className="hidden sm:block shrink-0">
+                            <LocationPicker city={city} state={state} onLocationChange={setLocation} />
+                        </div>
                     </div>
                     <div className="ml-auto flex shrink-0 items-center gap-6 px-4 text-xs order-last font-medium text-stone-600 sm:order-3">
                         <IconButton href="/about" label={"About"}>

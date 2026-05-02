@@ -1,57 +1,23 @@
 'use client';
-import pb from "@/app/lib/pb";
-import React, { useEffect, useState } from "react";
+import { useState } from "react";
 import { ListingCard } from "../components/NewListingCard";
 import { useCurrentUser, useListings } from "@/app/hooks";
-import { useIsMobile } from "@/app/hooks/useIsMobile";
-import LocationPicker from "@/app/components/LocationPicker";
-import type { pbuser } from "@/app/types/pbuser";
+import { useLocation } from "@/app/providers/LocationProvider";
 import { CATEGORY_OPTIONS } from "@/app/types/categories";
 import {useFavorites} from "@/app/hooks/useFavorites";
-import {ChevronRight, SlidersHorizontal} from "lucide-react";
+import {ChevronRight} from "lucide-react";
 import Image from "next/image";
 import homeBanner from "@/public/homebanner.webp"
 
 export default function Home() {
     const currentUserId = useCurrentUser();
-    const isMobile = useIsMobile(); 
-    const [city, setCity] = useState("");
-    const [state, setState] = useState("");
-    const [userLoading, setUserLoading] = useState(true);
+    const { city, state, locationReady } = useLocation();
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-    const { favorites, favoriteIds, refetch } = useFavorites(currentUserId);
+    const { favoriteIds } = useFavorites(currentUserId);
 
-    // load the logged-in user's city/state as default location
-    useEffect(() => {
-        let cancelled = false;
+    const { listings, loading, error } = useListings({ city, state, enabled: locationReady, excludeSeller: currentUserId, category: selectedCategory });
 
-        async function loadUserLocation() {
-            if (currentUserId) {
-                try {
-                    const user = await pb.collection("users").getOne<pbuser>(currentUserId);
-                    if (!cancelled && user.city && user.state) {
-                        setCity(user.city);
-                        setState(user.state);
-                    }
-                } catch {
-                    // user not found or error — leave location empty for now
-                }
-            }
-            if (!cancelled) setUserLoading(false);
-        }
-
-        loadUserLocation();
-        return () => { cancelled = true; };
-    }, [currentUserId]);
-
-    const { listings, loading, error } = useListings({ city, state, enabled: !userLoading, excludeSeller: currentUserId, category: selectedCategory });
-
-    function handleLocationChange(newCity: string, newState: string) {
-        setCity(newCity);
-        setState(newState);
-    }
-
-    if (userLoading) {
+    if (!locationReady) {
         return (
             <div className="flex min-h-screen items-center justify-center">
                 <p className="text-stone-500">Loading...</p>
@@ -79,37 +45,22 @@ export default function Home() {
 
                                 <Image src={homeBanner} alt={""} className={"translate-0 lg:translate-x-1/1 pointer-events-none absolute right-0 lg:-right-20 top-1/2 h-auto w-[320px] -translate-y-1/2 opacity-25 lg:opacity-40 sm:w-[420px] lg:w-[520px]"}/>
                             </div>
-
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                                <LocationPicker
-                                    city={city}
-                                    state={state}
-                                    onLocationChange={handleLocationChange}
-                                />
-                                <button
-                                    type="button"
-                                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 shadow-sm transition hover:border-stone-300 hover:bg-stone-50"
-                                >
-                                    <SlidersHorizontal className="h-4 w-4" />
-                                    Filters
-                                </button>
-                            </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center justify-center gap-2 overflow-x-auto pb-1">
-                            {CATEGORY_OPTIONS.map(({value, label}) => {
+                        <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 md:gap-2.5 overflow-x-auto pb-1">
+                            {CATEGORY_OPTIONS.map(({value, label, emoji}) => {
                                 return (
                                     <button
                                         key={value}
                                         type="button"
                                         onClick={() => setSelectedCategory(selectedCategory === value ? null : value)}
-                                        className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition ${
+                                        className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm md:px-5 md:py-2.5 md:text-base font-medium transition ${
                                             selectedCategory === value
                                                 ? 'border-orange-500 bg-orange-500 text-white shadow-sm'
                                                 : 'border-stone-100 bg-white text-stone-700 hover:border-stone-300'
                                         }`}
                                     >
-                                        {label}
+                                        <span className="mr-1">{emoji}</span>{label}
                                     </button>
                                 );
                             })}
@@ -140,7 +91,7 @@ export default function Home() {
                             <div className={"flex flex-col items-center justify-center"}>
                                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 max-w-sm sm:max-w-full mb-10">
                                     {listings.map((listing) => (
-                                        <ListingCard key={listing.id} listing={listing} />
+                                        <ListingCard key={listing.id} listing={listing} favoriteIds={favoriteIds} />
                                     ))}
                                 </div>
 

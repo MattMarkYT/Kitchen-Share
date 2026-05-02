@@ -5,7 +5,7 @@ import pb from "../lib/pb";
 import Link from "next/link";
 import { Search, Loader2, MapPinSearch, UserRoundSearch } from "lucide-react";
 import { Listing } from "@/app/types/listing";
-import {ListingCard} from "@/app/components/ListingCard";
+import {ListingCard} from "@/app/components/NewListingCard";
 import {useSearch} from "@/app/hooks/useSearch";
 import {pbuser} from "@/app/types/pbuser";
 import {sortListings} from "@/app/api/search";
