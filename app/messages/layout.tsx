@@ -11,7 +11,7 @@ import {usePathname} from 'next/navigation';
 import {Search} from 'lucide-react';
 import {RemoveConversationContext as RemoveConversationContext1} from "@/app/messages/removeConversationContext";
 
-type Tab = 'inbox' | 'archived';
+type Tab = 'inbox' | 'dm' | 'archived';
 
 function MessagesShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -67,8 +67,11 @@ function MessagesShell({ children }: { children: React.ReactNode }) {
     const visibleConversations = filterBlocked(conversations);
     const visibleArchived = filterBlocked(archivedConversations);
 
-    const isLoading = activeTab === 'inbox' ? loading : archivedLoading;
-    const displayList = activeTab === 'inbox' ? visibleConversations : visibleArchived;
+    const isLoading = activeTab === 'archived' ? archivedLoading : loading;
+    const displayList =
+        activeTab === 'archived' ? visibleArchived
+        : activeTab === 'dm'    ? visibleConversations.filter(c => !c.listing)
+        :                          visibleConversations.filter(c => !!c.listing);
 
     const getOtherUser = (convo: RecordModel) =>
         convo.buyer === currentUserId ? convo.expand?.seller : convo.expand?.buyer;
@@ -139,6 +142,16 @@ function MessagesShell({ children }: { children: React.ReactNode }) {
                             Offers
                         </button>
                         <button
+                            onClick={() => handleTabChange('dm')}
+                            className={`pb-3 pr-6 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+                                activeTab === 'dm'
+                                    ? 'border-orange-500 text-orange-600'
+                                    : 'border-transparent text-gray-400 hover:text-gray-700'
+                            }`}
+                        >
+                            DMs
+                        </button>
+                        <button
                             onClick={() => handleTabChange('archived')}
                             className={`pb-3 pr-6 text-sm font-semibold transition-colors border-b-2 -mb-px ${
                                 activeTab === 'archived'
@@ -178,7 +191,9 @@ function MessagesShell({ children }: { children: React.ReactNode }) {
                                     ? 'No matches found.'
                                     : activeTab === 'archived'
                                     ? 'No archived conversations.'
-                                    : ''}
+                                    : activeTab === 'dm'
+                                    ? 'No direct messages.'
+                                    : 'No offers found.'}
                             </p>
                         </div>
                     ) : (
@@ -189,6 +204,9 @@ function MessagesShell({ children }: { children: React.ReactNode }) {
                             const listing = convo.expand?.listing;
                             const listingImageUrl = listing?.main_image
                                 ? pb.files.getURL(listing, listing.main_image)
+                                : '';
+                            const avatarUrl = !listingImageUrl && otherUser?.avatar
+                                ? pb.files.getURL(otherUser, otherUser.avatar, { thumb: '100x100' })
                                 : '';
                             const saleStatus = convo.saleConfirmed
                                 ? 'confirmed'
@@ -217,6 +235,13 @@ function MessagesShell({ children }: { children: React.ReactNode }) {
                                             /* eslint-disable-next-line @next/next/no-img-element */
                                             <img
                                                 src={listingImageUrl}
+                                                alt=""
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : avatarUrl ? (
+                                            /* eslint-disable-next-line @next/next/no-img-element */
+                                            <img
+                                                src={avatarUrl}
                                                 alt=""
                                                 className="w-full h-full object-cover"
                                             />
