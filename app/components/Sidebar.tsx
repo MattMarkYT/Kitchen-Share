@@ -21,7 +21,7 @@ const navItems = [
     { label: "Browse Food", Icon: Home, url: "/home" },
     { label: "Favorites", Icon: Heart, url: "/favorites", loginRequired: true },
     { label: "My Listings", Icon: Tag, url: "/mylistings", loginRequired: true },
-    { label: "Messages", Icon: MessageCircle, url: "/messages", loginRequired: true },
+    { label: "Inbox", Icon: MessageCircle, url: "/messages", loginRequired: true },
 ];
 
 function NavItem({ Icon = CircleQuestionMark, label = "", url = "", loginRequired = false, badge = 0 }) {

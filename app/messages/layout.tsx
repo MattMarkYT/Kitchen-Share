@@ -123,7 +123,7 @@ function MessagesShell({ children }: { children: React.ReactNode }) {
                 {/* Unified header: title + tabs + search */}
                 <div className="shrink-0">
                     <div className="px-6 pt-6 pb-4">
-                        <h1 className="text-[22px] font-bold text-gray-900 tracking-tight">Messages</h1>
+                        <h1 className="text-[22px] font-bold text-gray-900 tracking-tight">Inbox</h1>
                     </div>
 
                     {/* Tabs */}
@@ -136,7 +136,7 @@ function MessagesShell({ children }: { children: React.ReactNode }) {
                                     : 'border-transparent text-gray-400 hover:text-gray-700'
                             }`}
                         >
-                            Inbox
+                            Offers
                         </button>
                         <button
                             onClick={() => handleTabChange('archived')}
@@ -176,9 +176,9 @@ function MessagesShell({ children }: { children: React.ReactNode }) {
                             <p className="text-sm text-gray-400">
                                 {searchQuery
                                     ? 'No matches found.'
-                                    : activeTab === 'inbox'
-                                    ? 'No conversations yet.'
-                                    : 'No archived conversations.'}
+                                    : activeTab === 'archived'
+                                    ? 'No archived conversations.'
+                                    : ''}
                             </p>
                         </div>
                     ) : (
