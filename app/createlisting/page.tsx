@@ -108,7 +108,7 @@ export default function CreateListing() {
             const data = new FormData();
             data.append("title", title.trim());
             data.append("price", price);
-            data.append("location", locationCity.trim());
+            data.append("location", `${locationCity.trim()}, ${locationState.trim()}`);
             data.append("category", category);
             data.append("tags", additionalTags.trim());
             data.append("description", description.trim());

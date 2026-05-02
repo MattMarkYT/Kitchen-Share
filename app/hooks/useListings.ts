@@ -35,13 +35,12 @@ export function useListings({ city, state, enabled = true, excludeSeller, catego
                 const filterParts: string[] = ['is_available = true'];
                 const params: Record<string, string> = {};
 
-                if (city) {
-                    filterParts.push('seller.city = {:city}');
+                if (city && state) {
+                    filterParts.push('location = {:location}');
+                    params.location = `${city}, ${state}`;
+                } else if (city) {
+                    filterParts.push('location ~ {:city}');
                     params.city = city;
-                }
-                if (state) {
-                    filterParts.push('seller.state = {:state}');
-                    params.state = state;
                 }
                 if (excludeSeller) {
                     filterParts.push('seller != {:excludeSeller}');

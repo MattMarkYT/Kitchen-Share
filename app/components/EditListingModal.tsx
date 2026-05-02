@@ -1,15 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { X } from 'lucide-react';
 import pb from '@/app/lib/pb';
 import { CATEGORY_OPTIONS } from '@/app/types/categories';
 import type { Listing } from '@/app/types/listing';
+import usLocations from '@/app/lib/us-locations.json';
 
 type EditForm = {
   title: string;
   price: string;
-  location: string;
   description: string;
   category: string;
   tags: string;
@@ -22,10 +22,25 @@ interface EditListingModalProps {
 }
 
 export default function EditListingModal({ listing, onClose, onSaved }: EditListingModalProps) {
+  const parsedLoc = (() => {
+    const loc = listing.location ?? '';
+    const lastComma = loc.lastIndexOf(', ');
+    return lastComma >= 0
+      ? { city: loc.slice(0, lastComma), state: loc.slice(lastComma + 2) }
+      : { city: loc, state: '' };
+  })();
+
+  const [locationState, setLocationState] = useState(parsedLoc.state);
+  const [locationCity, setLocationCity] = useState(parsedLoc.city);
+
+  const availableCities = useMemo(() =>
+    locationState ? (usLocations.cities[locationState as keyof typeof usLocations.cities] ?? []) : [],
+    [locationState]
+  );
+
   const [form, setForm] = useState<EditForm>({
     title: listing.title ?? '',
     price: String(listing.price ?? ''),
-    location: listing.location ?? '',
     description: listing.description ?? '',
     category: listing.category ?? '',
     tags: listing.tags ?? '',
@@ -54,7 +69,7 @@ export default function EditListingModal({ listing, onClose, onSaved }: EditList
       await pb.collection('listings').update(listing.id, {
         title: form.title.trim(),
         price: Number(form.price),
-        location: form.location.trim(),
+        location: locationCity && locationState ? `${locationCity}, ${locationState}` : (locationCity || locationState),
         description: form.description.trim(),
         category: form.category,
         tags: form.tags.trim(),
@@ -106,13 +121,31 @@ export default function EditListingModal({ listing, onClose, onSaved }: EditList
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-stone-500 mb-1.5">Location</label>
-            <input
+            <label className="block text-xs font-semibold text-stone-500 mb-1.5">State</label>
+            <select
               className={inputClass}
-              value={form.location}
-              onChange={handleChange('location')}
-              placeholder="e.g. Downtown LA"
-            />
+              value={locationState}
+              onChange={e => { setLocationState(e.target.value); setLocationCity(''); }}
+            >
+              <option value="">Select a state</option>
+              {usLocations.states.map((s: { name: string; isoCode: string }) => (
+                <option key={s.isoCode} value={s.isoCode}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-stone-500 mb-1.5">City</label>
+            <select
+              className={inputClass}
+              value={locationCity}
+              onChange={e => setLocationCity(e.target.value)}
+              disabled={!locationState}
+            >
+              <option value="">Select a city</option>
+              {availableCities.map((c: string) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-stone-500 mb-1.5">Category</label>
