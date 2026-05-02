@@ -85,12 +85,13 @@ export function useConversations(currentUserId: string | null, archived = false)
         const handleRealtimeEvent = (e: any) => {
             const r = e.record;
 
-            if (r.buyer !== currentUserId && r.seller !== currentUserId) return;
-
+            // handle deletes first — on delete events field expansion may be absent
             if (e.action === 'delete') {
                 setConversations(prev => prev.filter(c => c.id !== r.id));
                 return;
             }
+
+            if (r.buyer !== currentUserId && r.seller !== currentUserId) return;
 
             fetchAndPatchOne(r.id);
         };
@@ -122,5 +123,9 @@ export function useConversations(currentUserId: string | null, archived = false)
 
     const refetch = useCallback(() => fetchConversations(), [fetchConversations]);
 
-    return { conversations, loading, error, refetch };
+    const removeConversation = useCallback((id: string) => {
+        setConversations(prev => prev.filter(c => c.id !== id));
+    }, []);
+
+    return { conversations, loading, error, refetch, removeConversation };
 }

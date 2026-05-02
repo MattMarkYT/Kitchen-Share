@@ -172,6 +172,36 @@ export function useConversation(conversationId: string, currentUserId: string | 
         };
     }, [conversationId, currentUserId, visibilityFilter]);
 
+    // realtime subscription for conversation record (sale status, archive flags, etc.)
+    useEffect(() => {
+        if (!conversationId || !currentUserId) return;
+
+        let unsubscribe: (() => void) | null = null;
+        let isCancelled = false;
+
+        pb.collection('conversations')
+            .subscribe(conversationId, (e) => {
+                if (e.action === 'update' || e.action === 'create') {
+                    pb.collection('conversations').getOne(conversationId, {
+                        expand: 'buyer,seller,listing',
+                    }).then(convo => {
+                        if (!isCancelled) setConversation(convo);
+                    }).catch(() => {});
+                }
+            })
+            .then(unsub => {
+                if (isCancelled) unsub();
+                else unsubscribe = unsub;
+            })
+            .catch(console.error);
+
+        return () => {
+            isCancelled = true;
+            if (unsubscribe) unsubscribe();
+            else pb.collection('conversations').unsubscribe(conversationId);
+        };
+    }, [conversationId, currentUserId]);
+
     const sendMessage = useCallback(async (body: string) => {
         if (!body.trim() || !currentUserId || !conversationId) return;
 
