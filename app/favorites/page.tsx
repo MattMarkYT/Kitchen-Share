@@ -41,11 +41,6 @@ export default function Favorites() {
         const existing = leavingTimers.current.get(id);
         if (existing) clearTimeout(existing);
 
-        // If this is the last visible item in the current filter, snap back to all
-        if (filteredFavorites.filter(l => l.id !== id).length === 0 && categoryFilter !== "all") {
-            setCategoryFilter("all");
-        }
-
         setLeavingIds(prev => new Set(prev).add(id));
         const timer = setTimeout(() => {
             leavingTimers.current.delete(id);
@@ -53,7 +48,7 @@ export default function Favorites() {
             setLeavingIds(prev => { const next = new Set(prev); next.delete(id); return next; });
         }, LEAVE_DURATION_MS);
         leavingTimers.current.set(id, timer);
-    }, [refetch, filteredFavorites, categoryFilter]);
+    }, [refetch]);
 
     const { listings: nearbyListings, loading: nearbyLoading } = useListings({
         city,
