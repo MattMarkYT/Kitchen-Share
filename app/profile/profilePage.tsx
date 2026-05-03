@@ -7,7 +7,7 @@ import { Ban, ChevronLeft, ChevronRight, MapPin, MessageCircle, ShoppingBag, Sta
 import { ListingCard } from '@/app/components/NewListingCard';
 import usLocations from '@/app/lib/us-locations.json';
 import type { pbuser } from '@/app/types/pbuser';
-import getRatings from "@/app/api/userRating";
+import {getUserRatings} from "@/app/api/getStats";
 
 export const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
 const LISTINGS_PER_PAGE = 12;
@@ -225,7 +225,7 @@ export function ProfileStats({ profileUser }: { profileUser: pbuser | null | und
     
     useEffect(() => {
         const ratings = async () => {
-            setRatings(await getRatings(profileUser?.id));
+            setRatings(await getUserRatings(profileUser?.id));
         }
         ratings();
     }, []);
