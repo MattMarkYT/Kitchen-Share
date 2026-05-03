@@ -28,7 +28,7 @@ function AutoSelectOrEmpty() {
 
     // Redirect to most recent offer only when on the default/inbox tab
     const mostRecentOffer = tab === 'dm' ? null : conversations.find(
-        c => !!c.listing && !c.buyer_archived && !c.seller_archived
+        c => !!c.listing && ((c.buyer === currentUserId && !c.buyer_archived) || (c.buyer !== currentUserId && !c.seller_archived))
     );
 
     useEffect(() => {

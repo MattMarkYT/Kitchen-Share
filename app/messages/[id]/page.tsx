@@ -10,6 +10,7 @@ import { useIsListing } from '@/app/providers/ListingProvider';
 
 import {RemoveConversationContext} from "@/app/messages/removeConversationContext";
 import {useIsLogin} from "@/app/providers/LoginProvider";
+import BuyerRatingModal from "@/app/messages/[id]/BuyerRatingModal";
 
 export default function ConversationPage() {
     const router = useRouter();
@@ -41,6 +42,8 @@ export default function ConversationPage() {
     const [submittingRating, setSubmittingRating] = useState(false);
     const [ratingError, setRatingError] = useState('');
     const [hasReviewed, setHasReviewed] = useState(false);
+    const [showModalRating, setShowModalRating] = useState(true
+    );
 
     // Show "unavailable" page if the other user is blocked OR has blocked current user
     useEffect(() => {
@@ -204,7 +207,7 @@ export default function ConversationPage() {
                 rating: selectedRating,
             });
 
-            //archive conversation, unlink listing (caching its fields for display), lock typing
+            //archive conversation, lock typing
             await pb.collection('conversations').update(conversation.id, {
                 buyerRated: true,
                 buyer_archived: true,
@@ -228,10 +231,13 @@ export default function ConversationPage() {
        setFinalizationError('');
 
        try{
+           const conversationOnline = await pb.collection('conversations').getOne(conversation?.id);
            // Archive convo
            await pb.collection('conversations').update(conversationId, {
-               buyer_archived: (conversation?.buyer_archived || isBuyer),
-               seller_archived: (conversation?.seller_archived || !isBuyer),
+               buyer_archived: (conversationOnline?.buyer_archived || isBuyer),
+               seller_archived: (conversationOnline?.seller_archived || !isBuyer),
+               buyer_deleted: (conversationOnline?.buyer_deleted || isBuyer),
+               seller_deleted: (conversationOnline?.seller_deleted || !isBuyer),
                cached_listing_title: conversation?.title ?? null,
                cached_listing_price: conversation?.price ?? null,
                cached_listing_image_url: conversation?.main_image ? pb.files.getURL(conversation, conversation.main_image) : null
@@ -246,12 +252,12 @@ export default function ConversationPage() {
        }
    }, [conversationId, router, removeConversation]);
 
-    const handleConfirm = useCallback(async (): Promise<boolean> => {
+    const handleTwoWayConfirm = useCallback(async (): Promise<boolean> => {
         if(!conversationId) return false;
         setFinalizationError('');
 
         try{
-            const conversationOnline = await pb.collection('conversations').getOne(conversationId);
+            const conversationOnline = await pb.collection('conversations').getOne(conversation?.id);
 
             const buyerConfirmed = conversationOnline?.buyer_confirmed || isBuyer;
             const sellerConfirmed = conversationOnline?.seller_confirmed || !isBuyer;
@@ -269,7 +275,27 @@ export default function ConversationPage() {
             setFinalizationError((err as Error)?.message || 'Failed to confirm sale. Please try again.');
             return false;
         }
-    },[])
+    },[conversationId, isBuyer, router])
+
+    const handleConfirm = useCallback(async (): Promise<boolean> => {
+        if(!conversationId) return false;
+        setFinalizationError('');
+
+        try{
+            await pb.collection('conversations').update(conversationId, {
+                buyer_confirmed: false,
+                seller_confirmed: true,
+                saleConfirmed: true,
+                buyer_archived: false,
+                seller_archived: true,
+            });
+            return true;
+        } catch(err: unknown){
+            console.error("Error confirming sale:", err);
+            setFinalizationError((err as Error)?.message || 'Failed to confirm sale. Please try again.');
+            return false;
+        }
+    },[conversationId, isBuyer, router])
 
     if (!currentUserId) {
         return (
@@ -385,6 +411,15 @@ export default function ConversationPage() {
                                         <span className="text-xs text-gray-400 mr-1">{listing ? 'Confirm Sale?' : 'Delete DM?'}</span>
                                         <button
                                             type="button"
+                                            onClick={() => {
+                                                setShowConfirm(false);
+                                            }}
+                                            className="px-3 py-1.5 rounded-lg text-sm font-semibold text-gray-500 hover:bg-gray-100 transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="button"
                                             onClick={async () => {
                                                 const ok = await handleConfirm();
                                                 if (ok) setShowConfirm(false);
@@ -392,15 +427,6 @@ export default function ConversationPage() {
                                             className="px-3 py-1.5 rounded-lg text-sm font-medium text-emerald-600 border border-green-300 hover:bg-emerald-50 transition-colors"
                                         >
                                             Confirm
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setShowConfirm(false);
-                                            }}
-                                            className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors"
-                                        >
-                                            Cancel
                                         </button>
                                     </>
                                 )
@@ -428,11 +454,7 @@ export default function ConversationPage() {
                                 </>
                             ) : (
                                 <>
-                                    {hasConfirmed ? (
-                                        <span className="px-4 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-500">
-                                            Confirm Pending
-                                        </span>
-                                    ) : (
+                                    {!isBuyer &&
                                         <button
                                             type="button"
                                             onClick={() => setShowConfirm(true)}
@@ -440,7 +462,7 @@ export default function ConversationPage() {
                                         >
                                             Confirm Sale
                                         </button>
-                                    )}
+                                    }
                                     <button
                                         type="button"
                                         onClick={() => setShowCancel(true)}
@@ -517,33 +539,20 @@ export default function ConversationPage() {
                             Thank you! Your rating has been submitted.
                         </p>
                     ) : (
-                        <div className="flex items-center gap-5 flex-wrap">
-                            <p className="text-sm font-semibold text-gray-700">Rate this seller:</p>
-                            <div className="flex gap-1.5">
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                    <button
-                                        key={star}
-                                        type="button"
-                                        onClick={() => setSelectedRating(star)}
-                                        className={`text-3xl transition-transform hover:scale-110 ${
-                                            star <= selectedRating ? 'text-orange-400' : 'text-gray-300'
-                                        }`}
-                                    >
-                                        ★
-                                    </button>
-                                ))}
+                        <div>
+                            <BuyerRatingModal isOpen={showModalRating} selectedRating={selectedRating} submittingRating={submittingRating}
+                                              onSelectRating={setSelectedRating} onSubmit={handleSubmitRating}
+                                              onClose={() => {setShowModalRating(false)}} ratingError={ratingError}/>
+                            <div className={"flex flex-row gap-4 items-center"}>
+                                <p className="text-sm font-semibold text-gray-700">Give Feedback:</p>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModalRating(true)}
+                                    className="px-5 py-2 rounded-full bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                                >
+                                    Rate this seller
+                                </button>
                             </div>
-                            <button
-                                type="button"
-                                onClick={handleSubmitRating}
-                                disabled={submittingRating || selectedRating === 0}
-                                className="px-5 py-2 rounded-full bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed transition"
-                            >
-                                {submittingRating ? 'Submitting…' : 'Submit Rating'}
-                            </button>
-                            {ratingError && (
-                                <p className="text-red-500 text-sm w-full">{ratingError}</p>
-                            )}
                         </div>
                     )}
                 </div>
@@ -613,7 +622,7 @@ export default function ConversationPage() {
             </div>
 
             {/* ── Input / archived notice ── */}
-            {isArchived || saleStatus === 'confirmed' ? (
+            {!!conversation?.buyer_archived || !!conversation?.seller_archived || saleStatus === 'confirmed' ? (
                 <div className="px-6 py-5 border-t border-gray-100 bg-gray-50 shrink-0">
                     <div className="flex items-center gap-3 rounded-2xl bg-gray-100 px-5 py-4">
                         <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -622,7 +631,12 @@ export default function ConversationPage() {
                         <p className="text-sm text-gray-400">
                             {saleStatus === 'confirmed' && !isArchived
                                 ? 'Sale confirmed — rate the seller above to close this conversation.'
-                                : 'This conversation is archived. You cannot send new messages.'}
+                                :
+                                ((!isBuyer && !!conversation.buyer_archived || isBuyer && !!conversation.seller_archived) ?
+                                    'This conversation was archived by the other party. You cannot send new messages.'
+                                    :
+                                    'This conversation is archived. You cannot send new messages.')
+                            }
                         </p>
                     </div>
                 </div>
