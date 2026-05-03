@@ -1,6 +1,5 @@
 'use client';
 
-import { ListingCard as NewListingCard } from "@/app/components/NewListingCard";
 import { ListingCard } from "@/app/components/NewListingCard";
 import { useFavorites } from "@/app/hooks/useFavorites";
 import { useCurrentUser, useListings } from "@/app/hooks";
@@ -205,7 +204,7 @@ export default function Favorites() {
                                     leavingIds.has(listing.id) ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
                                 }`}
                             >
-                                <NewListingCard
+                                <ListingCard
                                     listing={listing}
                                     favoriteIds={favoriteIds}
                                     onUnfavorite={() => handleUnfavorite(listing.id)}

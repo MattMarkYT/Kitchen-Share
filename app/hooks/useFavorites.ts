@@ -34,7 +34,7 @@ export function useFavorites(userId: string | null) {
                 const [records, blockedIds] = await Promise.all([
                     pb.collection('favorites').getFullList<Favorites>({
                         filter,
-                        expand: 'listing',
+                        expand: 'listing, listing.seller',
                         requestKey: 'useFavorites',
                     }),
                     getCachedBlockedIds(userId),
