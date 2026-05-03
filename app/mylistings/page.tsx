@@ -1,23 +1,25 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, type ElementType } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { MapPin, Trash2, Pencil, CheckCircle, X} from 'lucide-react';
+import { ChevronDown, ClipboardList, MapPin, Pencil, Plus, Trash2, X } from 'lucide-react';
 import pb from '@/app/lib/pb';
 import { useMyListings } from '@/app/hooks/useMyListings';
 import type { Listing } from '@/app/types/listing';
-import PillButton from '@/app/components/PillButton';
 import EditListingModal from '@/app/components/EditListingModal';
+import { getListingStats } from '@/app/api/getStats';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Buyer = {
+type Offer = {
     id: string;
     conversationId: string;
     displayName: string;
     email: string;
     avatar: string;
     offerPrice: number;
+    created: string;
+    status: string;
 };
 
 function getImageUrl(listing: Listing): string {
@@ -25,189 +27,159 @@ function getImageUrl(listing: Listing): string {
     return pb.files.getURL(listing, listing.main_image, { thumb: '640x480' });
 }
 
-
-function ConfirmSaleModal({
+function OffersModal({
     listing,
     onClose,
-    onSold,
 }: {
     listing: Listing;
     onClose: () => void;
-    onSold: () => void;
 }) {
-    const [buyers, setBuyers] = useState<Buyer[]>([]);
+    const router = useRouter();
+    const [offers, setOffers] = useState<Offer[]>([]);
     const [loading, setLoading] = useState(true);
-    const [confirming, setConfirming] = useState(false);
-    const [cancelling, setCancelling] = useState(false);
-    const [selectedBuyer, setSelectedBuyer] = useState<Buyer | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const fetchBuyers = async () => {
+        let ignore = false;
+
+        const fetchOffers = async () => {
+            setLoading(true);
+            setError(null);
+
             try {
                 const conversations = await pb.collection('conversations').getFullList({
-                    filter: `listing = "${listing.id}" && saleConfirmed = false && saleCancelled = false`,
+                    filter: `listing = "${listing.id}"`,
                     expand: 'buyer',
+                    sort: '-created',
                 });
 
-                const buyerList: Buyer[] = conversations
-                    .filter(c => c.expand?.buyer)
-                    .map(c => ({
-                        id: c.expand!.buyer.id,
-                        conversationId: c.id,
-                        displayName:
-                            c.expand!.buyer.displayName ||
-                            `${c.expand!.buyer.firstName ?? ''} ${c.expand!.buyer.lastName ?? ''}`.trim() ||
-                            c.expand!.buyer.email,
-                        email: c.expand!.buyer.email,
-                        avatar: c.expand!.buyer.avatar
-                            ? pb.files.getURL(c.expand!.buyer, c.expand!.buyer.avatar, { thumb: '80x80' })
-                            : '',
-                        offerPrice: c.offerPrice ?? 0,
-                    }));
+                const offerList: Offer[] = conversations.map(conversation => {
+                    const expandedBuyer = conversation.expand?.buyer;
+                    const buyer = Array.isArray(expandedBuyer) ? expandedBuyer[0] : expandedBuyer;
+                    const firstName = stringifyValue(buyer?.firstName);
+                    const lastName = stringifyValue(buyer?.lastName);
+                    const displayName =
+                        stringifyValue(buyer?.displayName) ||
+                        `${firstName} ${lastName}`.trim() ||
+                        stringifyValue(buyer?.email) ||
+                        'Unknown buyer';
+                    const avatar = stringifyValue(buyer?.avatar);
 
-                setBuyers(buyerList);
-            } catch {
-                setError('Failed to load buyers.');
+                    return {
+                        id: stringifyValue(buyer?.id) || conversation.id,
+                        conversationId: conversation.id,
+                        displayName,
+                        email: stringifyValue(buyer?.email) || 'No email available',
+                        avatar: buyer && avatar ? pb.files.getURL(buyer, avatar, { thumb: '80x80' }) : '',
+                        offerPrice: getNumberFromRecord(conversation, ['offerPrice', 'offer_price', 'price', 'amount']),
+                        created: stringifyValue(conversation.created),
+                        status: getOfferStatus(conversation),
+                    };
+                });
+
+                if (!ignore) setOffers(offerList);
+            } catch (e) {
+                console.error(e);
+                if (!ignore) setError('Failed to load offers. Please try again.');
             } finally {
-                setLoading(false);
+                if (!ignore) setLoading(false);
             }
         };
-        fetchBuyers();
+
+        fetchOffers();
+
+        return () => {
+            ignore = true;
+        };
     }, [listing.id]);
-
-    const handleCancel = async () => {
-        if (!selectedBuyer) return;
-        setCancelling(true);
-        try {
-
-            // Update the conversation with a confirmed message
-            await pb.collection('conversations').update(selectedBuyer.conversationId, {
-                saleCancelled: true,
-                buyer_archived: true,
-            });
-
-            onSold();
-            onClose();
-        } catch (e) {
-            console.error(e);
-            setError('Failed to cancel sale. Please try again.');
-        } finally {
-            setCancelling(false);
-        }
-    };
-
-    const handleConfirm = async () => {
-        if (!selectedBuyer) return;
-        setConfirming(true);
-        try {
-
-            // Update the conversation with a confirmed message
-            await pb.collection('conversations').update(selectedBuyer.conversationId, {
-                saleConfirmed: true,
-                buyer_archived: true,
-            });
-
-            // Increment seller's successfulListings
-            const seller = await pb.collection('users').getOne(pb.authStore.record?.id ?? '');
-            await pb.collection('users').update(pb.authStore.record?.id ?? '', {
-                successfulListings: (seller.successfulListings ?? 0) + 1,
-            });
-
-            onSold();
-            onClose();
-        } catch (e) {
-            console.error(e);
-            setError('Failed to confirm sale. Please try again.');
-        } finally {
-            setConfirming(false);
-        }
-    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[80vh]">
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-5 border-b border-stone-100">
+            <div className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-stone-100 px-6 py-5">
                     <div>
-                        <h2 className="text-lg font-bold text-stone-900">Finalize Sale</h2>
-                        <p className="text-sm text-stone-400 mt-0.5">{listing.title}</p>
+                        <h2 className="text-lg font-bold text-stone-900">Offers</h2>
+                        <p className="mt-0.5 text-sm text-stone-400">{listing.title}</p>
                     </div>
-                    <button onClick={onClose} className="text-stone-400 hover:text-stone-700 transition-colors">
-                        <X className="w-5 h-5" />
+                    <button onClick={onClose} className="text-stone-400 transition-colors hover:text-stone-700">
+                        <X className="h-5 w-5" />
                     </button>
                 </div>
 
-                {/* Body */}
                 <div className="flex-1 overflow-y-auto px-6 py-4">
-                    {loading && (
-                        <p className="text-sm text-stone-400 text-center py-8">Loading buyers...</p>
+                    {loading && <p className="py-8 text-center text-sm text-stone-400">Loading offers...</p>}
+                    {error && <p className="py-8 text-center text-sm text-red-500">{error}</p>}
+                    {!loading && !error && offers.length === 0 && (
+                        <p className="py-8 text-center text-sm text-stone-400">No offers yet on this listing.</p>
                     )}
-                    {error && (
-                        <p className="text-sm text-red-500 text-center py-8">{error}</p>
-                    )}
-                    {!loading && !error && buyers.length === 0 && (
-                        <p className="text-sm text-stone-400 text-center py-8">
-                            No offers yet on this listing.
-                        </p>
-                    )}
-                    {!loading && !error && buyers.length > 0 && (
-                        <div className="flex flex-col gap-2">
-                            <p className="text-xs text-stone-400 mb-2">Select who you sold to:</p>
-                            {buyers.map(buyer => (
-                                <button
-                                    key={buyer.conversationId}
-                                    onClick={() => setSelectedBuyer(buyer)}
-                                    className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${
-                                        selectedBuyer?.conversationId === buyer.conversationId
-                                            ? 'border-stone-900 bg-stone-50'
-                                            : 'border-stone-200 hover:border-stone-400'
-                                    }`}
-                                >
-                                    {buyer.avatar ? (
-                                        <img
-                                            src={buyer.avatar}
-                                            alt={buyer.displayName}
-                                            className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                                        />
-                                    ) : (
-                                        <div className="w-10 h-10 rounded-full bg-stone-200 flex items-center justify-center flex-shrink-0 text-stone-500 text-sm font-bold">
-                                            {buyer.displayName[0]?.toUpperCase()}
+                    {!loading && !error && offers.length > 0 && (
+                        <div className="flex flex-col gap-3">
+                            {offers.map(offer => {
+                                const offeredDate = formatDateString(offer.created);
+
+                                return (
+                                    <div
+                                        key={offer.conversationId}
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => {
+                                            onClose();
+                                            router.push(`/messages/${offer.conversationId}`);
+                                        }}
+                                        onKeyDown={event => {
+                                            if (event.key === 'Enter' || event.key === ' ') {
+                                                event.preventDefault();
+                                                onClose();
+                                                router.push(`/messages/${offer.conversationId}`);
+                                            }
+                                        }}
+                                        className="flex cursor-pointer items-center gap-3 rounded-xl border border-stone-100 p-3 transition-colors hover:bg-stone-50"
+                                    >
+                                        {offer.avatar ? (
+                                            <img
+                                                src={offer.avatar}
+                                                alt={offer.displayName}
+                                                className="h-11 w-11 shrink-0 rounded-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-stone-100 text-sm font-bold text-stone-500">
+                                                {offer.displayName[0]?.toUpperCase() ?? '?'}
+                                            </div>
+                                        )}
+
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <p className="truncate text-sm font-bold text-stone-900">{offer.displayName}</p>
+                                                <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${getOfferStatusClass(offer.status)}`}>
+                                                    {offer.status}
+                                                </span>
+                                            </div>
+                                            <p className="mt-1 truncate text-xs font-medium text-stone-400">{offer.email}</p>
+                                            <p className="mt-1 text-xs font-medium text-stone-400">
+                                                {offeredDate === '—' ? 'Offer date unavailable' : `Offered ${offeredDate}`}
+                                            </p>
                                         </div>
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-stone-900 truncate">{buyer.displayName}</p>
-                                        <p className="text-xs text-stone-400 truncate">{buyer.email}</p>
+
+                                        <div className="shrink-0 text-right">
+                                            <p className="text-xs font-semibold text-stone-400">Offer</p>
+                                            <p className="mt-1 text-base font-extrabold text-stone-900">
+                                                {offer.offerPrice > 0 ? formatCurrency(offer.offerPrice) : 'No price'}
+                                            </p>
+                                        </div>
                                     </div>
-                                    {buyer.offerPrice > 0 && (
-                                        <span className="text-sm font-bold text-stone-900 flex-shrink-0">
-                                            ${buyer.offerPrice.toFixed(2)}
-                                        </span>
-                                    )}
-                                    {selectedBuyer?.conversationId === buyer.conversationId && (
-                                        <CheckCircle className="w-5 h-5 text-stone-900 flex-shrink-0" />
-                                    )}
-                                </button>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
 
-                {/* Footer */}
-                <div className="px-6 py-4 border-t border-stone-100 flex gap-3">
+                <div className="border-t border-stone-100 px-6 py-4">
                     <button
-                        onClick={handleCancel}
-                        disabled={!selectedBuyer || cancelling || confirming}
-                        className="flex-1 py-2.5 text-sm font-semibold text-stone-600 border border-stone-200 rounded-full hover:bg-stone-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        type="button"
+                        onClick={onClose}
+                        className="w-full rounded-full bg-stone-900 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-stone-700"
                     >
-                        {cancelling ? 'Cancelling...' : 'Cancel Sale'}
-                    </button>
-                    <button
-                        onClick={handleConfirm}
-                        disabled={!selectedBuyer || confirming || cancelling}
-                        className="flex-1 py-2.5 text-sm font-semibold text-white bg-stone-900 rounded-full hover:bg-stone-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                        {confirming ? 'Confirming...' : 'Confirm Sale'}
+                        Close
                     </button>
                 </div>
             </div>
@@ -292,11 +264,293 @@ function DeleteModal({
     );
 }
 
+type ListingTab = 'active';
+
+type ListingActionProps = {
+    icon: ElementType<{ className?: string }>;
+    label: string;
+    onClick?: () => void;
+    className?: string;
+};
+
+const listingTabs: { key: ListingTab; label: string }[] = [
+    { key: 'active', label: 'Active' },
+];
+
+function toRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+}
+
+function stringifyValue(value: unknown): string {
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+
+    if (value && typeof value === 'object') {
+        const record = value as Record<string, unknown>;
+        return stringifyValue(record.name) || stringifyValue(record.title) || stringifyValue(record.label);
+    }
+
+    return '';
+}
+
+function getStringValue(listing: Listing, keys: string[], fallback = '—'): string {
+    const record = toRecord(listing);
+
+    for (const key of keys) {
+        const value = stringifyValue(record[key]);
+        if (value) return value;
+    }
+
+    return fallback;
+}
+
+function getNumberFromRecord(value: unknown, keys: string[], fallback = 0): number {
+    const record = toRecord(value);
+
+    for (const key of keys) {
+        const fieldValue = record[key];
+
+        if (typeof fieldValue === 'number' && Number.isFinite(fieldValue)) return fieldValue;
+        if (Array.isArray(fieldValue)) return fieldValue.length;
+
+        if (typeof fieldValue === 'string') {
+            const number = Number(fieldValue);
+            if (Number.isFinite(number)) return number;
+        }
+    }
+
+    return fallback;
+}
+
+function getNumberValue(listing: Listing, keys: string[], fallback = 0): number {
+    return getNumberFromRecord(listing, keys, fallback);
+}
+
+type ListingStats = {
+    salesCount: number;
+    totalFavorites: number;
+    totalRatings: number;
+    ratingSum: number;
+    averageRating: number;
+};
+
+function ListingStatsMetaItems({ listing, status }: { listing: Listing; status: ListingTab }) {
+    const initialFavorites = getNumberValue(listing, ['favorites', 'favorite_count', 'favoriteCount', 'likes']);
+    const initialSoldCount = getSoldDisplay(listing, status);
+    const [stats, setStats] = useState<ListingStats>({
+        salesCount: initialSoldCount,
+        totalFavorites: initialFavorites,
+        totalRatings: 0,
+        ratingSum: 0,
+        averageRating: 0,
+    });
+
+    useEffect(() => {
+        let ignore = false;
+
+        const fetchStats = async () => {
+            try {
+                const nextStats = await getListingStats(listing.id);
+                if (!ignore) {
+                    setStats(current => ({
+                        ...current,
+                        salesCount: typeof nextStats.salesCount === 'number' ? nextStats.salesCount : current.salesCount,
+                        totalFavorites: typeof nextStats.totalFavorites === 'number' ? nextStats.totalFavorites : current.totalFavorites,
+                        totalRatings: typeof nextStats.totalRatings === 'number' ? nextStats.totalRatings : current.totalRatings,
+                        ratingSum: typeof nextStats.ratingSum === 'number' ? nextStats.ratingSum : current.ratingSum,
+                        averageRating: typeof nextStats.averageRating === 'number' ? nextStats.averageRating : current.averageRating,
+                    }));
+                }
+            } catch (error) {
+                console.error('Failed to load listing stats', error);
+            }
+        };
+
+        fetchStats();
+
+        return () => {
+            ignore = true;
+        };
+    }, [listing.id]);
+
+    return (
+        <>
+            <ListingMetaItem label="Sold" value={stats.salesCount} />
+            <ListingMetaItem label="Favorites" value={stats.totalFavorites} />
+        </>
+    );
+}
+
+function formatCurrency(value: unknown): string {
+    const amount = typeof value === 'number' ? value : Number(value);
+
+    if (!Number.isFinite(amount)) return '$0';
+
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: amount % 1 === 0 ? 0 : 2,
+    }).format(amount);
+}
+
+function formatPrice(price: Listing['price']): string {
+    return formatCurrency(price);
+}
+
+function formatDateString(dateValue: string): string {
+    if (!dateValue) return '—';
+
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return dateValue;
+
+    return new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    }).format(date);
+}
+
+
+function formatListingDate(listing: Listing): string {
+    const dateValue = getStringValue(
+        listing,
+        ['listed_on', 'listedAt', 'listed_at', 'created', 'createdAt', 'created_at', 'updated'],
+        ''
+    );
+
+    return formatDateString(dateValue);
+}
+
+function getOfferStatus(conversation: unknown): string {
+    const record = toRecord(conversation);
+    const status = stringifyValue(record.status).toLowerCase();
+
+    if (
+        record.saleConfirmed === true ||
+        record.sale_confirmed === true ||
+        status.includes('accepted') ||
+        status.includes('confirmed')
+    ) {
+        return 'Accepted';
+    }
+
+    if (record.saleCancelled === true || record.sale_cancelled === true || status.includes('cancel')) {
+        return 'Cancelled';
+    }
+
+    if (record.seller_archived === true || record.buyer_archived === true || status.includes('archived')) {
+        return 'Archived';
+    }
+
+    return 'Pending';
+}
+
+function getOfferStatusClass(status: string): string {
+    const normalizedStatus = status.toLowerCase();
+
+    if (normalizedStatus === 'accepted') return 'bg-lime-100 text-lime-700';
+    if (normalizedStatus === 'cancelled') return 'bg-red-100 text-red-600';
+    if (normalizedStatus === 'archived') return 'bg-stone-100 text-stone-500';
+
+    return 'bg-orange-100 text-orange-600';
+}
+
+function getSoldDisplay(listing: Listing, status: ListingTab): number {
+    const soldCount = getNumberFromRecord(
+        listing,
+        ['soldCount', 'sold_count', 'quantitySold', 'quantity_sold', 'totalSold', 'total_sold', 'sold'],
+        Number.NaN
+    );
+
+    if (!Number.isNaN(soldCount)) return soldCount;
+
+    const record = toRecord(listing);
+
+    return record.is_sold === true || record.sold === true ? 1 : 0;
+}
+
+function getListingCategory(listing: Listing): string {
+    const expand = toRecord(toRecord(listing).expand);
+    const expandedCategory = stringifyValue(expand.category);
+
+    return expandedCategory || getStringValue(listing, ['category', 'categoryName', 'category_name', 'foodCategory'], 'Uncategorized');
+}
+
+function getListingStatus(listing: Listing): ListingTab {
+    return 'active';
+}
+
+function getStatusLabel(status: ListingTab): string {
+    return 'Active';
+}
+
+function getStatusClass(status: ListingTab): string {
+    return 'bg-lime-100 text-lime-700';
+}
+
+function ListingTabButton({
+    label,
+    count,
+    active,
+    onClick,
+}: {
+    label: string;
+    count: number;
+    active: boolean;
+    onClick: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`relative flex items-center gap-4 pb-4 text-sm font-bold transition-colors ${
+                active ? 'text-orange-500' : 'text-stone-500 hover:text-stone-900'
+            }`}
+        >
+            <span>{label}</span>
+            <span
+                className={`flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-sm ${
+                    active ? 'bg-orange-100 text-orange-500' : 'bg-stone-100 text-stone-500'
+                }`}
+            >
+                {count}
+            </span>
+            {active && <span className="absolute bottom-0 left-0 h-1 w-full rounded-full bg-orange-500" />}
+        </button>
+    );
+}
+
+function ListingActionButton({ icon: Icon, label, onClick, className = '' }: ListingActionProps) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`group flex w-16 flex-col items-center gap-2 text-xs font-semibold text-stone-500 transition-colors hover:text-stone-900 ${className}`}
+        >
+            <span className="flex h-14 w-14 items-center justify-center rounded-xl border border-stone-200 bg-white shadow-sm transition-all group-hover:border-stone-300 group-hover:shadow-md">
+                <Icon className="h-5 w-5" />
+            </span>
+            <span>{label}</span>
+        </button>
+    );
+}
+
+function ListingMetaItem({ label, value }: { label: string; value: string | number }) {
+    return (
+        <div className="min-w-0">
+            <p className="mb-3 text-xs font-semibold text-stone-400">{label}</p>
+            <p className="truncate text-sm font-bold text-stone-900">{value}</p>
+        </div>
+    );
+}
+
 export default function MyListingsPage() {
     const router = useRouter();
     const { listings, loading, error, refetch } = useMyListings();
 
-    const [confirmSaleListing, setConfirmSaleListing] = useState<Listing | null>(null);
+    const [selectedTab, setSelectedTab] = useState<ListingTab>('active');
+    const [visibleCount, setVisibleCount] = useState(6);
+    const [offersListing, setOffersListing] = useState<Listing | null>(null);
     const [editListing, setEditListing] = useState<Listing | null>(null);
     const [deleteListing, setDeleteListing] = useState<Listing | null>(null);
 
@@ -306,111 +560,200 @@ export default function MyListingsPage() {
         }
     }, [router]);
 
+    useEffect(() => {
+        setVisibleCount(6);
+    }, [selectedTab]);
+
+    const groupedListings = useMemo(() => {
+        return listings.reduce<Record<ListingTab, Listing[]>>(
+            (groups, listing) => {
+                groups[getListingStatus(listing)].push(listing);
+                return groups;
+            },
+            { active: [] }
+        );
+    }, [listings]);
+
+    const visibleListings = groupedListings[selectedTab];
+    const renderedListings = visibleListings.slice(0, visibleCount);
+
+    const emptyMessage = {
+        active: "You don't have any active listings yet.",
+    }[selectedTab];
+
     return (
-        <div className="max-w-5xl mx-auto px-6 py-10">
+        <div className="w-full px-6 py-10 sm:px-8 lg:px-12 xl:px-16">
+            <div className="mx-auto max-w-[1600px]">
+                {/* Header */}
+                <div className="mb-12 flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <h1 className="text-4xl font-extrabold tracking-tight text-stone-950">My Listings</h1>
+                        <p className="mt-3 text-sm font-semibold text-stone-500">
+                            Manage all your food listings in one place.
+                        </p>
+                    </div>
 
-            {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-stone-900">My Listings</h1>
-            </div>
-
-            {/* Stats */}
-            <div className="flex gap-8 mb-10">
-                <div>
-                    <p className="text-2xl font-bold text-stone-900">{listings.length}</p>
-                    <p className="text-sm text-stone-400">Posts</p>
+                    <Link
+                        href="/createlisting"
+                        className="inline-flex h-12 items-center justify-center gap-2 self-start rounded-xl bg-orange-500 px-6 text-sm font-bold text-white shadow-[0_12px_24px_rgba(249,115,22,0.25)] transition-all hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-[0_16px_28px_rgba(249,115,22,0.3)]"
+                    >
+                        <Plus className="h-4 w-4" />
+                        New Listing
+                    </Link>
                 </div>
-            </div>
 
-            {/* States */}
-            {loading && (
-                <div className="text-center py-16 text-stone-400 text-sm">Loading your listings...</div>
-            )}
-            {error && (
-                <div className="text-center py-16 text-red-500 text-sm">Failed to load listings.</div>
-            )}
-            {!loading && !error && listings.length === 0 && (
-                <div className="text-center py-16 text-stone-400 text-sm">You haven't posted any listings yet.</div>
-            )}
-
-            {/* Grid */}
-            {!loading && !error && listings.length > 0 && (
-                <ul className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
-                    {listings.map((listing) => (
-                        <li key={listing.id} className="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl flex flex-col">
-                            <Link href={`/listing/${listing.id}`} className="block">
-                                <div className="relative aspect-[4/3] overflow-hidden bg-stone-100">
-                                    <img
-                                        src={getImageUrl(listing)}
-                                        alt={listing.title}
-                                        className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
-                                    />
-                                    <div className="absolute bottom-3 right-3 rounded-full bg-white/60 px-3 py-1 text-sm font-semibold text-stone-900 shadow-sm backdrop-blur-sm">
-                                        ${Number(listing.price).toLocaleString()}
-                                    </div>
-                                </div>
-                                <div className="p-4 space-y-1">
-                                    <h3 className="line-clamp-1 text-base font-semibold text-stone-900">
-                                        {listing.title || 'Unknown'}
-                                    </h3>
-                                    <div className="flex items-center gap-1 text-sm text-stone-500">
-                                        <MapPin className="h-3.5 w-3.5" />
-                                        <span className="line-clamp-1">{listing.location || 'Neighborhood unavailable'}</span>
-                                    </div>
-                                </div>
-                            </Link>
-
-                            {/* Action buttons */}
-                            <div className="px-4 pb-4 mt-auto flex flex-col gap-2">
-                                <PillButton
-                                    onClick={() => setConfirmSaleListing(listing)}
-                                    className="w-full"
-                                >
-                                    Finalize Sale
-                                </PillButton>
-                                <div className="flex gap-2">
-                                    <PillButton
-                                        onClick={() => setEditListing(listing)}
-                                        className="flex-1 flex items-center justify-center gap-1.5"
-                                    >
-                                        <Pencil className="w-3.5 h-3.5" />
-                                        Edit
-                                    </PillButton>
-                                    <PillButton
-                                        onClick={() => setDeleteListing(listing)}
-                                        className="!border-red-500 !text-red-500 hover:!bg-red-500/10 px-3"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </PillButton>
-                                </div>
-                            </div>
-                        </li>
+                {/* Tabs */}
+                <div className="mb-6 flex flex-wrap items-center gap-12">
+                    {listingTabs.map(tab => (
+                        <ListingTabButton
+                            key={tab.key}
+                            label={tab.label}
+                            count={groupedListings[tab.key].length}
+                            active={selectedTab === tab.key}
+                            onClick={() => setSelectedTab(tab.key)}
+                        />
                     ))}
-                </ul>
-            )}
+                </div>
 
-            {/* Modals */}
-            {confirmSaleListing && (
-                <ConfirmSaleModal
-                    listing={confirmSaleListing}
-                    onClose={() => setConfirmSaleListing(null)}
-                    onSold={refetch}
-                />
-            )}
-            {editListing && (
-                <EditListingModal
-                    listing={editListing}
-                    onClose={() => setEditListing(null)}
-                    onSaved={refetch}
-                />
-            )}
-            {deleteListing && (
-                <DeleteModal
-                    listing={deleteListing}
-                    onClose={() => setDeleteListing(null)}
-                    onDeleted={refetch}
-                />
-            )}
+                {/* States */}
+                {loading && (
+                    <div className="rounded-2xl border border-stone-100 bg-white p-10 text-center text-sm font-semibold text-stone-400 shadow-[0_12px_45px_rgba(28,25,23,0.08)]">
+                        Loading your listings...
+                    </div>
+                )}
+                {error && (
+                    <div className="rounded-2xl border border-red-100 bg-white p-10 text-center text-sm font-semibold text-red-500 shadow-[0_12px_45px_rgba(28,25,23,0.08)]">
+                        Failed to load listings.
+                    </div>
+                )}
+                {!loading && !error && visibleListings.length === 0 && (
+                    <div className="rounded-2xl border border-stone-100 bg-white p-10 text-center text-sm font-semibold text-stone-400 shadow-[0_12px_45px_rgba(28,25,23,0.08)]">
+                        {emptyMessage}
+                    </div>
+                )}
+
+                {/* List */}
+                {!loading && !error && visibleListings.length > 0 && (
+                    <>
+                        <ul className="space-y-6">
+                            {renderedListings.map(listing => {
+                                const status = getListingStatus(listing);
+                                const location = getStringValue(listing, ['location', 'city', 'neighborhood'], 'Neighborhood unavailable');
+                                const description = getStringValue(
+                                    listing,
+                                    ['description', 'details', 'summary'],
+                                    'No description provided yet.'
+                                );
+
+                                return (
+                                    <li
+                                        key={listing.id}
+                                        className="rounded-2xl border border-stone-100 bg-white p-4 shadow-[0_12px_45px_rgba(28,25,23,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_55px_rgba(28,25,23,0.12)]"
+                                    >
+                                        <div className="flex flex-col gap-6 xl:flex-row xl:items-center">
+                                            <Link
+                                                href={`/listing/${listing.id}`}
+                                                className="relative block h-56 w-full shrink-0 overflow-hidden rounded-xl bg-stone-100 sm:h-64 xl:h-[208px] xl:w-[240px]"
+                                            >
+                                                <img
+                                                    src={getImageUrl(listing)}
+                                                    alt={listing.title || 'Listing image'}
+                                                    className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
+                                                />
+                                                <span className="absolute bottom-4 right-4 rounded-full bg-white/85 px-4 py-2 text-sm font-extrabold text-stone-900 shadow-sm backdrop-blur-sm">
+                                                    {formatPrice(listing.price)}
+                                                </span>
+                                            </Link>
+
+                                            <div className="min-w-0 flex-1 xl:max-w-[360px] xl:pr-8">
+                                                <Link href={`/listing/${listing.id}`} className="group inline-block max-w-full">
+                                                    <h2 className="truncate text-xl font-extrabold text-stone-950 group-hover:text-orange-500">
+                                                        {listing.title || 'Untitled listing'}
+                                                    </h2>
+                                                </Link>
+
+                                                <div className="mt-4 flex items-center gap-2 text-sm font-semibold text-stone-400">
+                                                    <MapPin className="h-4 w-4 shrink-0" />
+                                                    <span className="truncate">{location}</span>
+                                                </div>
+
+                                                <p className="mt-5 line-clamp-2 text-sm font-medium leading-6 text-stone-500">
+                                                    {description}
+                                                </p>
+
+                                                <span
+                                                    className={`mt-5 inline-flex rounded-full px-3 py-1 text-xs font-bold ${getStatusClass(status)}`}
+                                                >
+                                                    {getStatusLabel(status)}
+                                                </span>
+                                            </div>
+
+                                            <div className="grid flex-[1.4] grid-cols-2 gap-x-8 gap-y-6 border-t border-stone-100 pt-6 sm:grid-cols-3 lg:grid-cols-5 xl:border-l xl:border-t-0 xl:py-6 xl:pl-8">
+                                                <ListingMetaItem label="Price" value={formatPrice(listing.price)} />
+                                                <ListingMetaItem label="Category" value={getListingCategory(listing)} />
+                                                <ListingMetaItem label="Listed on" value={formatListingDate(listing)} />
+                                                <ListingStatsMetaItems listing={listing} status={status} />
+                                            </div>
+
+                                            <div className="flex shrink-0 items-start gap-3 border-t border-stone-100 pt-6 xl:border-l xl:border-t-0 xl:py-4 xl:pl-8">
+                                                <ListingActionButton
+                                                    icon={ClipboardList}
+                                                    label="Offers"
+                                                    onClick={() => setOffersListing(listing)}
+                                                />
+                                                <ListingActionButton
+                                                    icon={Pencil}
+                                                    label="Edit"
+                                                    onClick={() => setEditListing(listing)}
+                                                />
+                                                <ListingActionButton
+                                                    icon={Trash2}
+                                                    label="Delete"
+                                                    onClick={() => setDeleteListing(listing)}
+                                                    className="hover:text-red-500"
+                                                />
+                                            </div>
+                                        </div>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+
+                        <div className="mt-10 flex justify-center">
+                            <button
+                                type="button"
+                                onClick={() => setVisibleCount(count => Math.min(count + 6, visibleListings.length))}
+                                className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-5 py-3 text-sm font-bold text-stone-700 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                            >
+                                Load more
+                                <ChevronDown className="h-4 w-4" />
+                            </button>
+                        </div>
+                    </>
+                )}
+
+                {/* Modals */}
+                {offersListing && (
+                    <OffersModal
+                        listing={offersListing}
+                        onClose={() => setOffersListing(null)}
+                    />
+                )}
+                {editListing && (
+                    <EditListingModal
+                        listing={editListing}
+                        onClose={() => setEditListing(null)}
+                        onSaved={refetch}
+                    />
+                )}
+                {deleteListing && (
+                    <DeleteModal
+                        listing={deleteListing}
+                        onClose={() => setDeleteListing(null)}
+                        onDeleted={refetch}
+                    />
+                )}
+            </div>
         </div>
     );
 }
