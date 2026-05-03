@@ -31,7 +31,8 @@ export default function ConversationPage() {
     const removeConversation = useContext(RemoveConversationContext);
     const [finalizationError, setFinalizationError] = useState('');
     const [isBlocked, setIsBlocked] = useState(false);
-    const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+    const [showCancel, setShowCancel] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
 
     // Rating state
     const [selectedRating, setSelectedRating] = useState(0);
@@ -138,6 +139,7 @@ export default function ConversationPage() {
 
 
     const isBuyer = conversation?.buyer === currentUserId;
+    const hasConfirmed = isBuyer ? conversation?.buyer_confirmed : conversation?.seller_confirmed;
     const otherUser = isBuyer ? conversation?.expand?.seller : conversation?.expand?.buyer;
     const listing = conversation?.expand?.listing;
     const isArchived = isBuyer ? !!conversation?.buyer_archived : !!conversation?.seller_archived;
@@ -205,7 +207,6 @@ export default function ConversationPage() {
                 buyerRated: true,
                 buyer_archived: true,
                 seller_archived: true,
-                listing: null,
                 cached_listing_title: cachedListing?.title ?? null,
                 cached_listing_price: cachedListing?.price ?? null,
                 cached_listing_image_url: builtImageUrl,
@@ -225,15 +226,14 @@ export default function ConversationPage() {
        setFinalizationError('');
 
        try{
-           //delete all messages in convo
-           const allMessages = await pb.collection('messages').getFullList({
-               filter: `conversation = "${conversationId}"`,
+           // Archive convo
+           await pb.collection('conversations').update(conversationId, {
+               buyer_archived: (conversation?.buyer_archived || isBuyer),
+               seller_archived: (conversation?.seller_archived || !isBuyer),
+               cached_listing_title: conversation?.title ?? null,
+               cached_listing_price: conversation?.price ?? null,
+               cached_listing_image_url: conversation?.main_image ? pb.files.getURL(conversation, conversation.main_image) : null
            });
-           await Promise.all(allMessages.map(msg => pb.collection('messages').delete(msg.id)));
-           //delete convo record itself
-           await pb.collection('conversations').delete(conversationId);
-           //optimistically remove from sidebar immediately
-           removeConversation(conversationId);
            //redirect back to messages list
            router.push('/messages');
            return true;
@@ -243,6 +243,31 @@ export default function ConversationPage() {
            return false;
        }
    }, [conversationId, router, removeConversation]);
+
+    const handleConfirm = useCallback(async (): Promise<boolean> => {
+        if(!conversationId) return false;
+        setFinalizationError('');
+
+        try{
+            const conversationOnline = await pb.collection('conversations').getOne(conversationId);
+
+            const buyerConfirmed = conversationOnline?.buyer_confirmed || isBuyer;
+            const sellerConfirmed = conversationOnline?.seller_confirmed || !isBuyer;
+            const saleConfirmed = buyerConfirmed && sellerConfirmed;
+            await pb.collection('conversations').update(conversationId, {
+                buyer_confirmed: buyerConfirmed,
+                seller_confirmed: sellerConfirmed,
+                saleConfirmed: saleConfirmed,
+                buyer_archived: false,
+                seller_archived: saleConfirmed,
+            });
+            return true;
+        } catch(err: unknown){
+            console.error("Error confirming sale:", err);
+            setFinalizationError((err as Error)?.message || 'Failed to confirm sale. Please try again.');
+            return false;
+        }
+    },[])
 
     if (!currentUserId) {
         return (
@@ -353,12 +378,37 @@ export default function ConversationPage() {
                     )}
                     {(!listing ? !isArchived : !saleStatus && !isArchived) && (
                         <div className="flex items-center gap-1.5">
-                            {showCancelConfirm ? (
+                            {showConfirm ? (
+                                    <>
+                                        <span className="text-xs text-gray-400 mr-1">{listing ? 'Confirm Sale?' : 'Delete DM?'}</span>
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                const ok = await handleConfirm();
+                                                if (ok) setShowConfirm(false);
+                                            }}
+                                            className="px-3 py-1.5 rounded-lg text-sm font-medium text-emerald-600 border border-green-300 hover:bg-emerald-50 transition-colors"
+                                        >
+                                            Confirm
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowConfirm(false);
+                                            }}
+                                            className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </>
+                                )
+                                :
+                                showCancel ? (
                                 <>
                                     <span className="text-xs text-gray-400 mr-1">{listing ? 'Cancel request?' : 'Delete DM?'}</span>
                                     <button
                                         type="button"
-                                        onClick={() => setShowCancelConfirm(false)}
+                                        onClick={() => setShowCancel(false)}
                                         className="px-3 py-1.5 rounded-lg text-sm font-medium text-emerald-600 hover:bg-emerald-50 transition-colors"
                                     >
                                         Keep
@@ -367,7 +417,7 @@ export default function ConversationPage() {
                                         type="button"
                                         onClick={async () => {
                                             const ok = await handleEndConversation();
-                                            if (ok) setShowCancelConfirm(false);
+                                            if (ok) setShowCancel(false);
                                         }}
                                         className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors"
                                     >
@@ -375,13 +425,28 @@ export default function ConversationPage() {
                                     </button>
                                 </>
                             ) : (
-                                <button
-                                    type="button"
-                                    onClick={() => setShowCancelConfirm(true)}
-                                    className="px-4 py-2 rounded-xl border border-red-200 text-sm font-semibold text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors"
-                                >
-                                    {listing ? (isBuyer ? 'Cancel Request' : 'Decline Request') : 'Delete DM'}
-                                </button>
+                                <>
+                                    {hasConfirmed ? (
+                                        <span className="px-4 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-500">
+                                            Confirm Pending
+                                        </span>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowConfirm(true)}
+                                            className="px-4 py-2 rounded-xl border border-green-200 text-sm font-semibold text-green-600 hover:bg-green-50 hover:border-green-300 transition-colors"
+                                        >
+                                            Confirm Sale
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCancel(true)}
+                                        className="px-4 py-2 rounded-xl border border-red-200 text-sm font-semibold text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors"
+                                    >
+                                        {listing ? (isBuyer ? 'Cancel Request' : 'Decline Request') : 'Delete DM'}
+                                    </button>
+                                </>
                             )}
                         </div>
                     )}
