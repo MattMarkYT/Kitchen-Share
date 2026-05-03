@@ -6,6 +6,7 @@ export async function getUserRatings(sellerId: string | undefined) {
         averageRating: 0,
         totalRatings: 0,
         ratingSum: 0,
+        totalSold: 0,
     };
     try {
         const stats = await pb.collection('stats').getOne(sellerId);
@@ -14,12 +15,14 @@ export async function getUserRatings(sellerId: string | undefined) {
             averageRating: typeof(stats.avgRating) === 'number' ? stats.avgRating : 0,
             totalRatings: typeof(stats.totalRatings) === 'number' ? stats.totalRatings : 0,
             ratingSum: typeof(stats.ratingSum) === 'number' ? stats.ratingSum : 0,
+            totalSold: typeof(stats.totalSold) === 'number' ? stats.totalSold : 0,
         };
     } catch (err) {
         return {
             averageRating: 0,
             totalRatings: 0,
             ratingSum: 0,
+            totalSold: 0,
         };
     }
 }

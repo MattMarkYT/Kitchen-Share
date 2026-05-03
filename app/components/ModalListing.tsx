@@ -9,7 +9,7 @@ import {
     MapPin,
     MessageCircleMore, Share2,
     ShoppingBag,
-    Star,
+    Star, UserRound,
     X,
 } from "lucide-react";
 import { useIsListing } from "@/app/providers/ListingProvider";
@@ -19,6 +19,7 @@ import {useCurrentUser, useStartConversation} from "@/app/hooks";
 import {toast} from "react-toastify";
 import {useIsLogin} from "@/app/providers/LoginProvider";
 import {usePathname} from "next/navigation";
+import {getUserRatings} from "@/app/api/getStats";
 
 type ListingRecord = {
     id: string;
@@ -60,7 +61,7 @@ function getListingImages(listing: ListingRecord) {
 }
 
 function getImageUrl(record: ListingRecord | SellerRecord, file?: string, thumb?: string) {
-    if (!file) return "/placeholder.png";
+    if (!file) return "/placeholder.jpg";
     return pb.files.getURL(record as never, file, thumb ? { thumb } : undefined);
 }
 
@@ -100,6 +101,7 @@ export default function ModalListing() {
 
     const {isOnLogin, setIsOnLogin} = useIsLogin();
     const currentUser = useCurrentUser();
+    const [stats, setStats] = useState({averageRating: 0, totalSold: 0, totalRatings: 0});
 
     useEffect(() => {
         if (!open) return;
@@ -128,9 +130,16 @@ export default function ModalListing() {
     }, [data]);
 
     useEffect(() => {
+        const getStats = async () => {
+            setStats(await getUserRatings(data?.seller.id));
+        }
+
         if (!open) {
             setIsOfferOpen(false);
             setOfferAmount("0");
+        }
+        if (open) {
+            getStats();
         }
     }, [open]);
 
@@ -366,12 +375,16 @@ export default function ModalListing() {
                                     <Link href={`profile/${seller.id}`}>
                                         <div className="mt-5 flex items-center gap-4">
                                             <div className="relative h-17 w-17 overflow-hidden rounded-full bg-neutral-100 ring-1 ring-black/5">
+                                                {seller.avatar ?
                                                 <img
                                                     src={getImageUrl(seller, seller.avatar, "160x160")}
                                                     alt={sellerName}
                                                     className="object-cover h-full w-full"
                                                     sizes="68px"
                                                 />
+                                                    :
+                                                    <UserRound className="text-orange-500 h-full w-full"></UserRound>
+                                                }
                                             </div>
 
                                             <div>
@@ -381,10 +394,10 @@ export default function ModalListing() {
                                                 <div className="mt-2 flex flex-wrap items-center gap-2 text-[16px] text-neutral-500">
                                           <span className="inline-flex items-center gap-1.5 font-medium text-[#2f7d32]">
                                             <Star className="h-4 w-4 fill-current" />
-                                              {rating.toFixed(1)} ({reviewCount})
+                                              {stats.averageRating.toFixed(1)} ({stats.totalRatings})
                                           </span>
                                                     <span aria-hidden="true">•</span>
-                                                    <span>{mealsSold} meals sold</span>
+                                                    <span>{stats.totalSold} meals sold</span>
                                                 </div>
                                             </div>
                                         </div>

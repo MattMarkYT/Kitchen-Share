@@ -2,7 +2,7 @@
 
 import { ChangeEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import type { RecordModel } from 'pocketbase';
-import { Ban, ChevronLeft, ChevronRight, MapPin, MessageCircle, ShoppingBag, Star } from 'lucide-react';
+import {Ban, ChevronLeft, ChevronRight, MapPin, MessageCircle, ShoppingBag, Star, UserRound} from 'lucide-react';
 
 import { ListingCard } from '@/app/components/NewListingCard';
 import usLocations from '@/app/lib/us-locations.json';
@@ -155,8 +155,8 @@ function CityCombobox({ cities, value, onChange, disabled }: {
 
 export function Avatar({ avatarPreview }: { avatarPreview: string }) {
     return (
-        <div className={`aspect-square max-h-90 flex items-center justify-center overflow-hidden rounded-full bg-stone-100 shadow-sm ring-1 ring-stone-200`}>
-            {avatarPreview ? <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" /> : <span className="text-5xl text-stone-300">👤</span>}
+        <div className={`aspect-square min-h-75 min-w-75 max-h-90 flex items-center justify-center overflow-hidden rounded-full bg-stone-100 shadow-sm ring-1 ring-stone-200`}>
+            {avatarPreview ? <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" /> : <UserRound className="text-orange-500 h-70 w-70"></UserRound>}
         </div>
     );
 }
@@ -200,7 +200,7 @@ export function PageTitle({ isSetupMode, isOwnProfile, displayName }: { isSetupM
     );
 }
 
-export function ProfileView({ avatarPreview, profileUser, formData }: { avatarPreview: string; profileUser: pbuser | null | undefined; formData: ProfileFormData }) {
+export function ProfileView({ profileUser, formData }: { profileUser: pbuser | null | undefined; formData: ProfileFormData }) {
     const location = [formData.city, formData.state].filter(Boolean).join(', ');
 
     return (

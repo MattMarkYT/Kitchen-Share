@@ -229,7 +229,7 @@ export default function ProfilePage() {
 
 
     return (
-        <main className="min-h-screen bg-[#fbfaf8] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+        <main className="min-h-screen bg-[#fbfaf8] px-4 py-5 sm:px-6 lg:px-8 lg:py-7 mb-40 md:mb-0">
             <div className="mx-auto w-full max-w-[1500px]">
                 <PageTitle isSetupMode={isSetupMode} isOwnProfile={isOwnProfile} displayName={formData.displayName} />
 
@@ -263,10 +263,10 @@ export default function ProfilePage() {
                             />
                             </div>
                         ) : (
-                            <div className={"relative justify-center items-center flex flex-row gap-10"}>
+                            <div className={"relative justify-center items-center flex flex-col md:flex-row gap-10"}>
                                 <Avatar avatarPreview={avatarPreview}/>
                                 <div className={"flex flex-col gap-6"}>
-                                    <ProfileView avatarPreview={avatarPreview} profileUser={profileUser} formData={formData} />
+                                    <ProfileView profileUser={profileUser} formData={formData} />
                                     <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center">
                                         <ProfileActions
                                             isSetupMode={isSetupMode}
