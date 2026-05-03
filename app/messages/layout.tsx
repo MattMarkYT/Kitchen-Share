@@ -6,8 +6,8 @@ import pb from '../lib/pb';
 import {formatRelativeTime} from '../lib/formatTime';
 import {getBlockedByUserIds, getBlockedUserIds} from '../lib/blockUtils';
 import Link from 'next/link';
-import {Suspense, useEffect, useState} from 'react';
-import {usePathname} from 'next/navigation';
+import {Suspense, useEffect, useRef, useState} from 'react';
+import {usePathname, useRouter} from 'next/navigation';
 import {Search} from 'lucide-react';
 import {RemoveConversationContext as RemoveConversationContext1} from "@/app/messages/removeConversationContext";
 
@@ -35,10 +35,47 @@ function MessagesShell({ children }: { children: React.ReactNode }) {
         ? pathname.split('/messages/')[1]?.split('/')[0]
         : null;
 
+    const router = useRouter();
+
     const handleTabChange = (tab: Tab) => {
         if (tab === 'archived') setArchivedEverOpened(true);
         setActiveTab(tab);
+
+        // Pick the list for the target tab and navigate to its first item, or /messages if empty
+        const targetList =
+            tab === 'archived' ? visibleArchived
+            : tab === 'dm'    ? visibleConversations.filter(c => !c.listing)
+            :                    visibleConversations.filter(c => !!c.listing);
+
+        const first = targetList[0];
+        router.push(first ? `/messages/${first.id}` : `/messages?tab=${tab}`);
     };
+
+    // Auto-switch to archived tab when the active conversation becomes archived mid-session.
+    const wasInActiveListRef = useRef(false);
+    useEffect(() => {
+        if (!activeConvoId || loading) return;
+        const inActive = conversations.some(c => c.id === activeConvoId);
+        if (inActive) {
+            wasInActiveListRef.current = true;
+        } else if (wasInActiveListRef.current && activeTab !== 'archived') {
+            // Was active, now gone — it got archived. Defer to avoid setState-in-effect warning.
+            wasInActiveListRef.current = false;
+            setTimeout(() => {
+                setArchivedEverOpened(true);
+                setActiveTab('archived');
+            }, 0);
+        }
+    }, [activeConvoId, conversations, loading, activeTab]);
+
+    // Reset the tracking ref when navigating to a different conversation
+    const prevConvoIdRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (activeConvoId !== prevConvoIdRef.current) {
+            prevConvoIdRef.current = activeConvoId;
+            wasInActiveListRef.current = false;
+        }
+    }, [activeConvoId]);
 
     // Lock body scroll while messages page is open
     useEffect(() => {
@@ -204,7 +241,7 @@ function MessagesShell({ children }: { children: React.ReactNode }) {
                             const listing = convo.expand?.listing;
                             const listingImageUrl = listing?.main_image
                                 ? pb.files.getURL(listing, listing.main_image)
-                                : '';
+                                : (convo.cached_listing_image_url as string | undefined) ?? '';
                             const avatarUrl = !listingImageUrl && otherUser?.avatar
                                 ? pb.files.getURL(otherUser, otherUser.avatar, { thumb: '100x100' })
                                 : '';
@@ -257,7 +294,7 @@ function MessagesShell({ children }: { children: React.ReactNode }) {
                                             <p className={`text-[13.5px] truncate flex-1 leading-snug ${
                                                 isActive ? 'font-bold text-orange-700' : 'font-semibold text-gray-900'
                                             }`}>
-                                                {listing?.title || 'Direct message'}
+                                                {listing?.title || convo.cached_listing_title || 'Direct message'}
                                             </p>
                                             <span className="text-[11px] text-gray-400 shrink-0 tabular-nums">
                                                 {formatRelativeTime(convo.updated)}

@@ -141,9 +141,16 @@ export default function ConversationPage() {
     const otherUser = isBuyer ? conversation?.expand?.seller : conversation?.expand?.buyer;
     const listing = conversation?.expand?.listing;
     const isArchived = isBuyer ? !!conversation?.buyer_archived : !!conversation?.seller_archived;
+    const cachedListingTitle = conversation?.cached_listing_title as string | undefined;
+    const cachedListingPrice = conversation?.cached_listing_price as number | undefined;
+    const cachedListingImageUrl = conversation?.cached_listing_image_url as string | undefined;
+    const hasListingInfo = !!(listing || cachedListingTitle);
     const otherAvatarUrl = otherUser?.avatar ? pb.files.getURL(otherUser, otherUser.avatar) : '/placeholder-avatar.png';
-    const listingImageUrl = listing?.main_image ? pb.files.getURL(listing, listing.main_image) : '/placeholder.png';
-    const listingPrice = listing?.price ?? -1;
+    const listingImageUrl = listing?.main_image
+        ? pb.files.getURL(listing, listing.main_image)
+        : cachedListingImageUrl ?? '';
+    const listingPrice = listing?.price ?? cachedListingPrice ?? -1;
+    const listingTitle = listing?.title ?? cachedListingTitle;
     const offerPrice = conversation?.offerPrice ?? conversation?.initial_offer ?? null;
     const saleStatus = conversation?.saleConfirmed ? 'confirmed' : conversation?.saleCancelled ? 'cancelled' : null;
 
@@ -180,6 +187,11 @@ export default function ConversationPage() {
                  return;
             }
 
+            const cachedListing = conversation.expand?.listing;
+            const builtImageUrl = cachedListing?.main_image
+                ? pb.files.getURL(cachedListing, cachedListing.main_image)
+                : null;
+
             //create rating record in database
             await pb.collection('ratings').create({
                 buyer: currentUserId,
@@ -187,20 +199,17 @@ export default function ConversationPage() {
                 listing: listingId,
                 rating: selectedRating,
             });
-            //mark this convo as rated
+
+            //archive conversation, unlink listing (caching its fields for display), lock typing
             await pb.collection('conversations').update(conversation.id, {
                 buyerRated: true,
+                buyer_archived: true,
+                seller_archived: true,
+                listing: null,
+                cached_listing_title: cachedListing?.title ?? null,
+                cached_listing_price: cachedListing?.price ?? null,
+                cached_listing_image_url: builtImageUrl,
             });
-
-            //delete all messages in this convo
-            const allMessages = await pb.collection('messages').getFullList({
-                filter: `conversation = "${conversation.id}"`,
-            });
-            await Promise.all(allMessages.map(msg => pb.collection('messages').delete(msg.id)));
-            //delete convo after rating is submitted
-            await pb.collection('conversations').delete(conversation.id);
-            //redirect back to messages list
-            router.push('/messages');
             return;
         } catch (err: unknown) {
             console.error("Submit rating error:", err);
@@ -309,7 +318,7 @@ export default function ConversationPage() {
                                 <span className="text-xl text-gray-400">👤</span>
                             )}
                         </div>
-                        {listing && listingImageUrl && (
+                        {hasListingInfo && listingImageUrl !== '/placeholder.png' && (
                             <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-md overflow-hidden border-2 border-white shadow-sm bg-gray-100">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={listingImageUrl} alt="" className="w-full h-full object-cover" />
@@ -322,10 +331,10 @@ export default function ConversationPage() {
                             {otherUser?.displayName || 'Unknown'}
                         </p>
                         <p className="text-sm text-gray-500 truncate mt-0.5">
-                            {listing ? (
+                            {hasListingInfo ? (
                                 <>
-                                    {listing.title?.length > 40 ? listing.title.slice(0, 40) + '…' : listing.title}
-                                    {listing.price != null && <span className="text-gray-400"> · ${listing.price.toFixed(2)}</span>}
+                                    {listingTitle && (listingTitle.length > 40 ? listingTitle.slice(0, 40) + '…' : listingTitle)}
+                                    {listingPrice !== -1 && <span className="text-gray-400"> · ${listingPrice.toFixed(2)}</span>}
                                 </>
                             ) : 'Direct message'}
                         </p>
@@ -342,7 +351,7 @@ export default function ConversationPage() {
                             View Listing
                         </button>
                     )}
-                    {(!listing ? !isArchived : isBuyer && !saleStatus && !isArchived) && (
+                    {(!listing ? !isArchived : !saleStatus && !isArchived) && (
                         <div className="flex items-center gap-1.5">
                             {showCancelConfirm ? (
                                 <>
@@ -371,7 +380,7 @@ export default function ConversationPage() {
                                     onClick={() => setShowCancelConfirm(true)}
                                     className="px-4 py-2 rounded-xl border border-red-200 text-sm font-semibold text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors"
                                 >
-                                    {listing ? 'Cancel Request' : 'Delete DM'}
+                                    {listing ? (isBuyer ? 'Cancel Request' : 'Decline Request') : 'Delete DM'}
                                 </button>
                             )}
                         </div>
@@ -483,22 +492,8 @@ export default function ConversationPage() {
                     {loadingMore && (
                         <p className="text-center text-gray-400 text-sm py-3">Loading…</p>
                     )}
-                    {!isBuyer && listingPrice !== -1 && offerPrice != null ? (
-                        offerPrice === listingPrice ? (
-                            <p className="mx-auto w-fit rounded-full border border-emerald-200 bg-emerald-50 px-5 py-2.5 text-center text-sm font-medium text-emerald-900 shadow-sm">
-                                The buyer wants to buy at full price:{' '}
-                                <span className="font-bold">${listingPrice.toFixed(2)}</span>
-                            </p>
-                        ) : (
-                            <p className="mx-auto w-fit rounded-full border border-orange-200 bg-orange-50 px-5 py-2.5 text-center text-sm font-medium text-orange-800 shadow-sm">
-                                The buyer is asking to pay{' '}
-                                <span className="font-bold">${offerPrice.toFixed(2)}</span>
-                            </p>
-                        )
-                    ) : (
-                        !hasMore && messages.length > 0 && (
-                            <p className="text-center text-gray-400 text-sm py-3">Beginning of conversation</p>
-                        )
+                    {!hasMore && messages.length > 0 && (
+                        <p className="text-center text-gray-400 text-sm py-3">Beginning of conversation</p>
                     )}
                     {messages.length === 0 && (
                         <p className="text-center text-gray-400 text-base py-10">
@@ -551,13 +546,17 @@ export default function ConversationPage() {
             </div>
 
             {/* ── Input / archived notice ── */}
-            {isArchived ? (
+            {isArchived || saleStatus === 'confirmed' ? (
                 <div className="px-6 py-5 border-t border-gray-100 bg-gray-50 shrink-0">
                     <div className="flex items-center gap-3 rounded-2xl bg-gray-100 px-5 py-4">
                         <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
-                        <p className="text-sm text-gray-400">This conversation is archived. You cannot send new messages.</p>
+                        <p className="text-sm text-gray-400">
+                            {saleStatus === 'confirmed' && !isArchived
+                                ? 'Sale confirmed — rate the seller above to close this conversation.'
+                                : 'This conversation is archived. You cannot send new messages.'}
+                        </p>
                     </div>
                 </div>
             ) : (

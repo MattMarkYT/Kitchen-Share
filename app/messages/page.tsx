@@ -1,47 +1,33 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCurrentUser, useConversations } from '../hooks';
 import { useListings } from '../hooks/useListings';
 import { ListingCard } from '../components/NewListingCard';
+import { useLocation } from '../providers/LocationProvider';
 import Link from 'next/link';
-import pb from '../lib/pb';
-import type { pbuser } from '../types/pbuser';
 
 // Auto-redirect if conversations exist
 function AutoSelectOrEmpty() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const tab = searchParams.get('tab') as 'inbox' | 'dm' | 'archived' | null;
     const currentUserId = useCurrentUser();
     const { conversations, loading } = useConversations(currentUserId);
-    const [userLocation, setUserLocation] = useState<{ city: string; state: string }>({ city: '', state: '' });
-    const [locationLoaded, setLocationLoaded] = useState(false);
-
-    // Load user location for relevant listings.
-    useEffect(() => {
-        if (!currentUserId) return;
-        let cancelled = false;
-        pb.collection('users').getOne<pbuser>(currentUserId, { requestKey: 'msg-empty-user' })
-            .then(u => { if (!cancelled) setUserLocation({ city: u.city || '', state: u.state || '' }); })
-            .catch(() => {})
-            .finally(() => { if (!cancelled) setLocationLoaded(true); });
-        return () => { cancelled = true; };
-    }, [currentUserId]);
-
-    // If there's no user, treat location as "loaded" (nothing to fetch)
-    const listingsEnabled = locationLoaded || !currentUserId;
+    const { city, state, locationReady } = useLocation();
 
     const { listings } = useListings({
-        city: userLocation.city,
-        state: userLocation.state,
-        enabled: listingsEnabled,
+        city,
+        state,
+        enabled: locationReady && tab !== 'dm',
         excludeSeller: currentUserId,
     });
 
     const previewListings = listings.slice(0, 4);
 
-    // Redirect to most recent offer
-    const mostRecentOffer = conversations.find(
+    // Redirect to most recent offer only when on the default/inbox tab
+    const mostRecentOffer = tab === 'dm' ? null : conversations.find(
         c => !!c.listing && !c.buyer_archived && !c.seller_archived
     );
 
@@ -56,40 +42,71 @@ function AutoSelectOrEmpty() {
     // Has a redirect target — blank while navigating
     if (mostRecentOffer) return <div className="flex-1 bg-gray-50" />;
 
+    const hasLocation = !!(city && state);
+
+    // ── DM empty state ──
+    if (tab === 'dm') {
+        return (
+            <div className="flex-1 overflow-y-auto bg-gray-50">
+                <div
+                    className="flex flex-col items-center justify-center min-h-full px-16 py-24 animate-[fadeIn_250ms_ease-out]"
+                    style={{ animationFillMode: 'both' }}
+                >
+                    <h2 className="text-7xl font-bold text-gray-900 mb-5 text-center tracking-tight">No DMs yet</h2>
+                    <p className="text-xl text-gray-400 text-center max-w-md leading-relaxed mb-12">
+                        Visit a seller&apos;s profile from any listing to start a direct conversation.
+                    </p>
+                    <Link
+                        href="/home"
+                        className="px-10 py-4 bg-orange-500 hover:bg-orange-600 text-white text-lg font-semibold rounded-2xl transition-colors shadow-sm"
+                    >
+                        Browse Listings →
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
+    // ── Offers empty state ──
     return (
         <div className="flex-1 overflow-y-auto bg-gray-50">
             <div
-                className="flex flex-col items-center px-16 py-24 animate-[fadeIn_250ms_ease-out]"
+                className="flex flex-col items-center justify-center min-h-full px-16 py-24 animate-[fadeIn_250ms_ease-out]"
                 style={{ animationFillMode: 'both' }}
             >
                 {/* Heading */}
-                <h2 className="text-5xl font-bold text-gray-900 mb-4 text-center">No offers yet</h2>
-                <p className="text-lg text-gray-500 text-center max-w-sm leading-relaxed mb-12">
-                    Browse listings and send an offer to start a conversation with sellers.
+                <h2 className="text-7xl font-bold text-gray-900 mb-5 text-center tracking-tight">No offers yet</h2>
+                <p className="text-xl text-gray-400 text-center max-w-md leading-relaxed mb-12">
+                    Send an offer on a listing to start negotiating with a seller, or post your own listing and start selling today!
                 </p>
 
                 {/* Primary CTA */}
                 <Link
                     href="/home"
-                    className="px-10 py-4 bg-orange-500 hover:bg-orange-600 text-white text-lg font-semibold rounded-2xl transition-colors shadow-sm mb-20"
+                    className="px-10 py-4 bg-orange-500 hover:bg-orange-600 text-white text-lg font-semibold rounded-2xl transition-colors shadow-sm mb-24"
                 >
                     Browse Listings →
                 </Link>
 
-                {/* Listing previews */}
-                {previewListings.length > 0 && (
-                    <div className="w-full">
-                        <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider text-center mb-8">
-                            {userLocation.city ? `Popular near ${userLocation.city}` : 'Explore popular listings'}
-                        </p>
-
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                            {previewListings.map(listing => (
-                                <ListingCard key={listing.id} listing={listing} />
-                            ))}
+                {/* Listing previews or no-nearby empty state */}
+                {locationReady && (
+                    previewListings.length > 0 ? (
+                        <div className="w-full">
+                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider text-center mb-6">
+                                {hasLocation ? `Available near ${city}, ${state}` : 'Popular listings'}
+                            </p>
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                                {previewListings.map(listing => (
+                                    <ListingCard key={listing.id} listing={listing} />
+                                ))}
+                            </div>
                         </div>
-
-                    </div>
+                    ) : hasLocation ? (
+                        <div className="flex flex-col items-center gap-3">
+                            <p className="text-3xl font-bold text-gray-700 text-center">Nothing nearby in {city}, {state}</p>
+                            <p className="text-lg text-gray-400 text-center max-w-sm">Try a different location from the navbar or check back later.</p>
+                        </div>
+                    ) : null
                 )}
             </div>
         </div>
