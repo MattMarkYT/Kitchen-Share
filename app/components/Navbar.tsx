@@ -7,7 +7,7 @@ import pb from "../lib/pb";
 import { useCurrentUser } from "../hooks";
 import SearchBar from "@/app/components/SearchBar";
 import LocationPicker from "@/app/components/LocationPicker";
-import {ChevronDown, User, LogOut, Heart, Map, Info, Plus, MessageCircle, LayoutList, Menu} from "lucide-react";
+import {ChevronDown, User, LogOut, Heart, Map, Info, Plus, MessageCircle, LayoutList, Menu, Ban} from "lucide-react";
 import PillButton from "@/app/components/PillButton";
 import IconButton from "@/app/components/IconButton";
 import {useIsMobile} from "@/app/hooks/useIsMobile";
@@ -15,6 +15,7 @@ import {useIsLogin} from "@/app/providers/LoginProvider";
 import {useLocation} from "@/app/providers/LocationProvider";
 import {useGSAP} from "@gsap/react";
 import gsap from "gsap";
+import ModalBlocked from "./ModalBlocked";
 
 type UserRecord = {
     id: string;
@@ -36,6 +37,7 @@ export default function Navbar({ sidebarOpen, onToggleSidebar }: NavbarProps) {
 
     const [user, setUser] = useState<UserRecord | null>(null);
     const [menuOpen, setMenuOpen] = useState(false);
+    const [blockedModalOpen, setBlockedModalOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
     const handleLoginRequired = (e: any) => {
@@ -54,6 +56,11 @@ export default function Navbar({ sidebarOpen, onToggleSidebar }: NavbarProps) {
             window.location.href = '/';
         }
     };
+
+    const handleBlockedUsers = () => {
+        setBlockedModalOpen(true);
+    };
+
 
     useEffect(() => {
         const fetchUser = async () => {
@@ -199,6 +206,15 @@ export default function Navbar({ sidebarOpen, onToggleSidebar }: NavbarProps) {
                                                     <LogOut className="h-4 w-4" />
                                                     <span>Logout</span>
                                                 </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={handleBlockedUsers}
+                                                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-900"
+                                                >
+                                                    <Ban className="h-4 w-4" />
+                                                    <span>Blocked Users</span>
+                                                </button>
                                             </div>
                                         </div>
                                     )}
@@ -307,7 +323,7 @@ export default function Navbar({ sidebarOpen, onToggleSidebar }: NavbarProps) {
                     </div>
                 </nav>
             }
-
+            <ModalBlocked open={blockedModalOpen} onClose={() => setBlockedModalOpen(false)} currentUserId={currentUserId} />
         </header>
     );
 }
