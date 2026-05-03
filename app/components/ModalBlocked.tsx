@@ -38,7 +38,7 @@ type BlockRecord = {
 type BlockedUsersModalProps = {
     open: boolean;
     onClose: () => void;
-    currentUserId: string;
+    currentUserId: string | null;
 };
 
 export default function BlockedUsersModal({
