@@ -9,6 +9,7 @@ import { hasBlocked, isBlockedBy } from '@/app/lib/blockUtils';
 import { useIsListing } from '@/app/providers/ListingProvider';
 
 import {RemoveConversationContext} from "@/app/messages/removeConversationContext";
+import {useIsLogin} from "@/app/providers/LoginProvider";
 
 export default function ConversationPage() {
     const router = useRouter();
@@ -27,6 +28,7 @@ export default function ConversationPage() {
         loadMore
     } = useConversation(conversationId, currentUserId);
 
+    const { setIsOnLogin } = useIsLogin();
     const { openListing } = useIsListing();
     const removeConversation = useContext(RemoveConversationContext);
     const [finalizationError, setFinalizationError] = useState('');
@@ -274,7 +276,7 @@ export default function ConversationPage() {
             <div className="flex-1 flex items-center justify-center bg-gray-50">
                 <p className="text-gray-500 text-sm">
                     Please{' '}
-                    <a href="/auth" className="text-orange-500 hover:underline">log in</a>{' '}
+                    <a onClick={setIsOnLogin(true)} className="text-orange-500 hover:underline">log in</a>{' '}
                     to view messages.
                 </p>
             </div>
