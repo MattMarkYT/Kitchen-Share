@@ -369,7 +369,7 @@ export default function ModalListing() {
                                                 <img
                                                     src={getImageUrl(seller, seller.avatar, "160x160")}
                                                     alt={sellerName}
-                                                    className="object-cover h-full"
+                                                    className="object-cover h-full w-full"
                                                     sizes="68px"
                                                 />
                                             </div>
