@@ -128,7 +128,7 @@ export default function BlockedUsersModal({
     if (!mounted || !open) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex min-h-screen items-center justify-center bg-black/45 px-4 py-6 backdrop-blur-[1px]">
+        <div className="fixed inset-0 z-[9999] flex min-h-screen items-center justify-center bg-black/45 px-4 py-6 backdrop-blur-[1px]" onClick={onClose}>
             <div
                 className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-[24px] bg-white shadow-2xl"
                 onClick={(event) => event.stopPropagation()}
