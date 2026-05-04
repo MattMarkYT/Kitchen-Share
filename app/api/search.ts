@@ -29,6 +29,7 @@ export async function searchListings(query: string, page: number) {
     
     const results = await pb.collection("listings").getList<Listing>(page, LISTINGS_PER_PAGE, {
         filter: combinedFilter as string,
+        expand: 'seller',
     });
     return Array.from(results.items)
 }
@@ -45,6 +46,7 @@ export async function searchNeighborhoods(query: string, page: number) {
     const searchFilter = createFilter(query, ["location"]);
     const results = await pb.collection("listings").getList<Listing>(page, LISTINGS_PER_PAGE, {
         filter: searchFilter as string,
+        expand: 'seller',
     });
     return Array.from(results.items)
 }
