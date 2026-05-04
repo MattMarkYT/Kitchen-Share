@@ -49,7 +49,7 @@ function OffersModal({
 
             try {
                 const conversations = await pb.collection('conversations').getFullList({
-                    filter: `listing = "${listing.id}"`,
+                    filter: `listing = "${listing.id}" && seller_archived = false`,
                     expand: 'buyer',
                     sort: '-created',
                 });
