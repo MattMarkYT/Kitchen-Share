@@ -5,7 +5,7 @@ import {useConversations, useCurrentUser} from '../hooks';
 import pb from '../lib/pb';
 import {formatRelativeTime} from '../lib/formatTime';
 import Link from 'next/link';
-import {Suspense, useEffect, useState} from 'react';
+import {Suspense, useEffect, useRef, useState} from 'react';
 import {usePathname, useRouter} from 'next/navigation';
 import {Search} from 'lucide-react';
 import {RemoveConversationContext as RemoveConversationContext1, RemoveArchivedConversationContext, NextArchivedContext} from "@/app/messages/removeConversationContext";
@@ -17,7 +17,21 @@ function MessagesShell({ children }: { children: React.ReactNode }) {
     const [activeTab, setActiveTab] = useState<Tab>('inbox');
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const ITEMS_PER_PAGE = 7;
+    // ~89 px per row (py-3.5 + h-14 thumbnail + my-0.5 margin + divider)
+    const ROW_HEIGHT_PX = 89;
+    const listContainerRef = useRef<HTMLDivElement>(null);
+    const [listHeight, setListHeight] = useState(0);
+    const ITEMS_PER_PAGE = listHeight > 0 ? Math.max(1, Math.floor(listHeight / ROW_HEIGHT_PX)) : 7;
+
+    useEffect(() => {
+        const el = listContainerRef.current;
+        if (!el) return;
+        const observer = new ResizeObserver(entries => {
+            setListHeight(entries[0].contentRect.height);
+        });
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
 
     const currentUserId = useCurrentUser();
     const { conversations, loading, removeConversation } = useConversations(currentUserId);
@@ -175,7 +189,7 @@ function MessagesShell({ children }: { children: React.ReactNode }) {
                 </div>
 
                 {/* Conversation rows */}
-                <div className="flex-1 overflow-hidden flex flex-col">
+                <div ref={listContainerRef} className="flex-1 overflow-hidden flex flex-col">
                     {isLoading ? (
                         <div className="flex items-center justify-center flex-1">
                             <p className="text-sm text-gray-400">Loading…</p>
