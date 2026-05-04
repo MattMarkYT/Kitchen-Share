@@ -59,7 +59,13 @@ export function useConversation(conversationId: string, currentUserId: string | 
                 filter: `conversation="${conversationId}" && sender!="${currentUserId}" && read=false`,
             });
             await Promise.all(
-                unread.map(msg => pb.collection('messages').update(msg.id, { read: true }))
+                unread.map(msg =>
+                    pb.collection('messages').update(msg.id, { read: true }).catch((e: any) => {
+                        if (e?.status === 404) return; // expected: message deleted before we could mark it
+                        console.error('markAsRead error:', e);
+                        throw e;
+                    })
+                )
             );
         } catch (err: any) {
             if (!err.isAbort) console.error('Failed to mark messages as read:', err);
