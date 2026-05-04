@@ -127,9 +127,9 @@ export function useConversations(currentUserId: string | null, archived = false)
         };
     }, [currentUserId]);
 
-    // only subscribe to realtime updates for the inbox (non-archived) tab.
+    // subscribe to realtime conversation updates for both inbox and archived tabs.
     useEffect(() => {
-        if (!currentUserId || archived) return;
+        if (!currentUserId) return;
 
         let unsubscribe: (() => void) | null = null;
         let isCancelled = false;
@@ -167,8 +167,6 @@ export function useConversations(currentUserId: string | null, archived = false)
             isCancelled = true;
             if (unsubscribe) unsubscribe();
         };
-        // archived is covered transitively — fetchAndPatchOne captures it in its own deps
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUserId, fetchAndPatchOne]);
 
     const refetch = useCallback(() => fetchConversations(), [fetchConversations]);

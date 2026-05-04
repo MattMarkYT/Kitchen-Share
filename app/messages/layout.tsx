@@ -5,7 +5,7 @@ import {useConversations, useCurrentUser} from '../hooks';
 import pb from '../lib/pb';
 import {formatRelativeTime} from '../lib/formatTime';
 import Link from 'next/link';
-import {Suspense, useEffect, useRef, useState} from 'react';
+import {Suspense, useEffect, useState} from 'react';
 import {usePathname, useRouter} from 'next/navigation';
 import {Search} from 'lucide-react';
 import {RemoveConversationContext as RemoveConversationContext1, RemoveArchivedConversationContext, NextArchivedContext} from "@/app/messages/removeConversationContext";
@@ -45,29 +45,6 @@ function MessagesShell({ children }: { children: React.ReactNode }) {
         const first = targetList[0];
         router.push(first ? `/messages/${first.id}` : `/messages?tab=${tab}`);
     };
-
-    // Auto-switch to archived tab when the active conversation becomes archived mid-session.
-    const wasInActiveListRef = useRef(false);
-    useEffect(() => {
-        if (!activeConvoId || loading) return;
-        const inActive = conversations.some(c => c.id === activeConvoId);
-        if (inActive) {
-            wasInActiveListRef.current = true;
-        } else if (wasInActiveListRef.current && activeTab !== 'archived') {
-            // Was active, now gone — it got archived. Defer to avoid setState-in-effect warning.
-            wasInActiveListRef.current = false;
-            setTimeout(() => setActiveTab('archived'), 0);
-        }
-    }, [activeConvoId, conversations, loading, activeTab]);
-
-    // Reset the tracking ref when navigating to a different conversation
-    const prevConvoIdRef = useRef<string | null>(null);
-    useEffect(() => {
-        if (activeConvoId !== prevConvoIdRef.current) {
-            prevConvoIdRef.current = activeConvoId;
-            wasInActiveListRef.current = false;
-        }
-    }, [activeConvoId]);
 
     // Lock body scroll while messages page is open
     useEffect(() => {
