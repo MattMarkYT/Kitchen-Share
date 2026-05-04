@@ -111,6 +111,7 @@ export default function ConversationPage() {
     const [showCancel, setShowCancel] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const [showDeleteArchive, setShowDeleteArchive] = useState(false);
+    const [confirmedLocally, setConfirmedLocally] = useState(false);
 
     // Rating state
     const [selectedRating, setSelectedRating] = useState(0);
@@ -441,7 +442,7 @@ export default function ConversationPage() {
                             View Listing
                         </button>
                     )}
-                    {(!listing ? !isArchived : !saleStatus && !isArchived) && (
+                    {(!listing ? !isArchived : !saleStatus && !isArchived && !confirmedLocally) && (
                         <div className="flex items-center gap-1.5">
                             {showConfirm ? (
                                     <>
@@ -459,7 +460,10 @@ export default function ConversationPage() {
                                             type="button"
                                             onClick={async () => {
                                                 const ok = await handleConfirm();
-                                                if (ok) setShowConfirm(false);
+                                                if (ok) {
+                                                    setShowConfirm(false);
+                                                    setConfirmedLocally(true);
+                                                }
                                             }}
                                             className="px-3 py-1.5 rounded-lg text-sm font-medium text-emerald-600 border border-green-300 hover:bg-emerald-50 transition-colors"
                                         >
