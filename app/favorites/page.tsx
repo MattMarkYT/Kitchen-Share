@@ -74,7 +74,7 @@ export default function Favorites() {
     if (error) {
         return (
             <main className="min-h-screen bg-stone-50">
-                <div className="mx-auto max-w-6xl px-8 py-16">
+                <div className="mx-auto max-w-screen-2xl px-8 py-16">
                     <h1 className="text-4xl font-bold tracking-tight text-stone-900 sm:text-5xl">
                         Your Favorites
                     </h1>
@@ -90,7 +90,7 @@ export default function Favorites() {
     if (loading) {
         return (
             <main className="min-h-screen bg-stone-50">
-                <div className="mx-auto max-w-6xl px-8 py-16">
+                <div className="mx-auto max-w-screen-2xl px-8 py-16">
                     <h1 className="text-4xl font-bold tracking-tight text-stone-900 sm:text-5xl">
                         Your Favorites
                     </h1>
@@ -102,7 +102,7 @@ export default function Favorites() {
 
     return (
         <main className="min-h-screen bg-stone-50">
-            <div className="mx-auto max-w-6xl px-8 py-16">
+            <div className="mx-auto max-w-screen-2xl px-8 py-16">
                 <div className="mb-8">
                     <h1 className="text-4xl font-bold tracking-tight text-stone-900 sm:text-5xl">
                         Your Favorites
@@ -167,8 +167,8 @@ export default function Favorites() {
 
                         {locationReady && (
                             nearbyLoading ? (
-                                <div className="w-full grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                                    {Array.from({ length: 4 }).map((_, i) => (
+                                <div className="w-full grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+                                    {Array.from({ length: 5 }).map((_, i) => (
                                         <div key={i} className="h-75 animate-pulse rounded-3xl border border-stone-200 bg-white" />
                                     ))}
                                 </div>
@@ -177,8 +177,8 @@ export default function Favorites() {
                                     <p className="mb-6 text-center text-xs font-semibold uppercase tracking-wider text-stone-400">
                                         {city && state ? `Available near ${city}, ${state}` : 'Popular listings'}
                                     </p>
-                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                                        {nearbyListings.slice(0, 4).map((listing) => (
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+                                        {nearbyListings.slice(0, 5).map((listing) => (
                                             <ListingCard key={listing.id} listing={listing} favoriteIds={favoriteIds} onFavorite={handleNearbyFavorite} />
                                         ))}
                                     </div>
@@ -196,7 +196,7 @@ export default function Favorites() {
                         No favorites match these filters.
                     </p>
                 ) : (
-                    <div className="grid grid-cols-1 gap-7 sm:grid-cols-2 lg:grid-cols-3 animate-[fadeIn_300ms_ease-out]">
+                    <div className="grid grid-cols-1 gap-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 animate-[fadeIn_300ms_ease-out]">
                         {filteredFavorites.map((listing) => (
                             <div
                                 key={listing.id}

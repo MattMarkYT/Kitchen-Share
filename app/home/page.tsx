@@ -9,7 +9,7 @@ import {ChevronRight} from "lucide-react";
 import Image from "next/image";
 import homeBanner from "@/public/homebanner.webp"
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 10;
 
 export default function Home() {
     const currentUserId = useCurrentUser();
@@ -96,7 +96,7 @@ export default function Home() {
                         )}
 
                         {loading ? (
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
                                 {Array.from({ length: 8 }).map((_, index) => (
                                     <div
                                         key={index}
@@ -112,7 +112,7 @@ export default function Home() {
                             </div>
                         ) : (
                             <div className={"flex flex-col items-center justify-center"}>
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 max-w-sm sm:max-w-full mb-10">
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 max-w-sm sm:max-w-full mb-10">
                                     {visibleListings.map((listing) => (
                                         <ListingCard key={listing.id} listing={listing} favoriteIds={favoriteIds} />
                                     ))}
