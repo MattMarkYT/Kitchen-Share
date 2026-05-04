@@ -283,6 +283,8 @@ export default function ConversationPage() {
                 cached_listing_price: cachedListing?.price ?? null,
                 cached_listing_image_url: builtImageUrl,
             });
+            setHasReviewed(true);
+            setShowModalRating(false);
             return;
         } catch (err: unknown) {
             console.error("Submit rating error:", err);
