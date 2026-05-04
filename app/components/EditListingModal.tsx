@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
+import { ClientResponseError } from 'pocketbase';
 import { MapPin, Tag, X } from 'lucide-react';
 import pb from '@/app/lib/pb';
 import { CATEGORY_OPTIONS } from '@/app/types/categories';
@@ -17,6 +18,15 @@ type EditForm = {
   description: string;
   category: string;
   tags: string;
+};
+
+type Errors = {
+  title?: string;
+  price?: string;
+  location?: string;
+  images?: string;
+  category?: string;
+  description?: string;
 };
 
 type ImageSlot =
@@ -101,11 +111,15 @@ export default function EditListingModal({ listing, onClose, onSaved }: EditList
     category: listing.category ?? '',
     tags: listing.tags ?? '',
   });
+  const [errors, setErrors] = useState<Errors>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const handleChange =
       (field: keyof EditForm) =>
           (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
             setForm(prev => ({ ...prev, [field]: e.target.value }));
+            setErrors(prev => ({ ...prev, [field]: undefined }));
           };
 
   const buildInitialSlots = (): ImageSlot[] => {
@@ -128,30 +142,29 @@ export default function EditListingModal({ listing, onClose, onSaved }: EditList
     if (!files.length) return;
     const toAdd = files.slice(0, MAX_PHOTOS - slots.length);
     setSlots(prev => [...prev, ...toAdd.map(file => ({ kind: 'new' as const, file, url: URL.createObjectURL(file) }))]);
+    setErrors(prev => ({ ...prev, images: undefined }));
     e.target.value = '';
   };
 
   const handleRemoveSlot = (index: number) => setSlots(prev => prev.filter((_, i) => i !== index));
 
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  function validate(): boolean {
+    const newErrors: Errors = {};
+    if (!form.title.trim()) newErrors.title = 'Title is required';
+    if (!form.price || isNaN(Number(form.price)) || Number(form.price) < 0) newErrors.price = 'Valid price is required';
+    if (!locationCity.trim()) newErrors.location = 'Location is required';
+    if (!form.category.trim()) newErrors.category = 'Category is required';
+    if (form.description.length < 5) newErrors.description = 'Description must be at least 5 characters long';
+    if (slots.length === 0) newErrors.images = 'Please upload at least one photo';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
 
   const handleSave = async () => {
-    if (!form.title.trim()) {
-      setError('Title is required.');
-      return;
-    }
-    if (!form.price || isNaN(Number(form.price)) || Number(form.price) < 0) {
-      setError('Valid price is required.');
-      return;
-    }
-    if (slots.length === 0) {
-      setError('At least one photo is required.');
-      return;
-    }
+    if (!validate()) return;
 
     setSaving(true);
-    setError(null);
+    setSubmitError(null);
     try {
       const data = new FormData();
       data.append('title', form.title.trim());
@@ -184,8 +197,32 @@ export default function EditListingModal({ listing, onClose, onSaved }: EditList
       await pb.collection('listings').update(listing.id, data);
       onSaved();
       onClose();
-    } catch {
-      setError('Failed to save changes. Please try again.');
+    } catch (err) {
+      console.error(err);
+      if (err instanceof ClientResponseError && err.response?.data) {
+        const responseErrors: Errors = {};
+        const submitMessages: string[] = [];
+
+        Object.entries(err.response.data).forEach(([field, value]) => {
+          const message = (value as { message?: string })?.message ?? String(value);
+          if (field in form || field === 'main_image' || field === 'images' || field === 'location') {
+            if (field === 'main_image' || field === 'images') {
+              responseErrors.images = message;
+            } else if (field === 'location') {
+              responseErrors.location = message;
+            } else {
+              responseErrors[field as keyof Errors] = message;
+            }
+          } else {
+            submitMessages.push(`${field}: ${message}`);
+          }
+        });
+
+        setErrors(prev => ({ ...prev, ...responseErrors }));
+        setSubmitError(submitMessages.length ? submitMessages.join(' ') : null);
+      } else {
+        setSubmitError('Failed to save changes. Please try again.');
+      }
     } finally {
       setSaving(false);
     }
@@ -280,6 +317,7 @@ export default function EditListingModal({ listing, onClose, onSaved }: EditList
                 <div className="mt-4">
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">{photoGridItems()}</div>
                   <p className="mt-3 text-center text-[12.5px] text-[#6b7280]">Good photos help your listing stand out!</p>
+                  {errors.images && <ErrMsg>{errors.images}</ErrMsg>}
                 </div>
               </section>
 
@@ -288,7 +326,7 @@ export default function EditListingModal({ listing, onClose, onSaved }: EditList
                 <div className="mt-4 grid gap-x-7 gap-y-4 md:grid-cols-2">
                   <div>
                     <FieldLabel required>Title</FieldLabel>
-                    <div className={inputWrapClass(error === 'Title is required.')}>
+                    <div className={inputWrapClass(!!errors.title)}>
                       <input
                           type="text"
                           maxLength={MAX_TITLE}
@@ -301,11 +339,12 @@ export default function EditListingModal({ listing, onClose, onSaved }: EditList
                       {form.title.length}/{MAX_TITLE}
                     </span>
                     </div>
+                    {errors.title && <ErrMsg>{errors.title}</ErrMsg>}
                   </div>
 
                   <div>
                     <FieldLabel required>Price</FieldLabel>
-                    <div className={inputWrapClass(error === 'Valid price is required.', 'overflow-hidden p-0')}>
+                    <div className={inputWrapClass(!!errors.price, 'overflow-hidden p-0')}>
                     <span className="flex h-full w-11 items-center justify-center border-r border-[#e5e7eb] bg-[#fafafa] text-sm font-medium text-[#374151]">
                       $
                     </span>
@@ -319,17 +358,19 @@ export default function EditListingModal({ listing, onClose, onSaved }: EditList
                           className={inputClass}
                       />
                     </div>
+                    {errors.price && <ErrMsg>{errors.price}</ErrMsg>}
                   </div>
 
                   <div>
                     <FieldLabel required>Location</FieldLabel>
                     <div className="grid gap-2 sm:grid-cols-2">
-                      <div className={inputWrapClass(false, 'relative p-0')}>
+                      <div className={inputWrapClass(!!errors.location, 'relative p-0')}>
                         <select
                             value={locationState}
                             onChange={e => {
                               setLocationState(e.target.value);
                               setLocationCity('');
+                              setErrors(prev => ({ ...prev, location: undefined }));
                             }}
                             className={`${inputClass} appearance-none pr-9`}
                         >
@@ -342,10 +383,13 @@ export default function EditListingModal({ listing, onClose, onSaved }: EditList
                         </select>
                         <ChevronDown />
                       </div>
-                      <div className={inputWrapClass(false, 'relative p-0')}>
+                      <div className={inputWrapClass(!!errors.location, 'relative p-0')}>
                         <select
                             value={locationCity}
-                            onChange={e => setLocationCity(e.target.value)}
+                            onChange={e => {
+                              setLocationCity(e.target.value);
+                              setErrors(prev => ({ ...prev, location: undefined }));
+                            }}
                             disabled={!locationState}
                             className={`${inputClass} appearance-none pr-9`}
                         >
@@ -359,6 +403,7 @@ export default function EditListingModal({ listing, onClose, onSaved }: EditList
                         <ChevronDown />
                       </div>
                     </div>
+                    {errors.location && <ErrMsg>{errors.location}</ErrMsg>}
                     <p className="mt-2 flex items-center gap-1 text-[12.5px] leading-4 text-[#6b7280]">
                       <MapPin className="h-3.5 w-3.5" /> Where is your food available for pickup?
                     </p>
@@ -366,7 +411,7 @@ export default function EditListingModal({ listing, onClose, onSaved }: EditList
 
                   <div>
                     <FieldLabel required>Category</FieldLabel>
-                    <div className={inputWrapClass(false, 'relative p-0')}>
+                    <div className={inputWrapClass(!!errors.category, 'relative p-0')}>
                       <select value={form.category} onChange={handleChange('category')} className={`${inputClass} appearance-none pr-10`}>
                         <option value="">Select a category</option>
                         {CATEGORY_OPTIONS.map(opt => (
@@ -377,6 +422,7 @@ export default function EditListingModal({ listing, onClose, onSaved }: EditList
                       </select>
                       <ChevronDown />
                     </div>
+                    {errors.category && <ErrMsg>{errors.category}</ErrMsg>}
                     <p className="mt-2 flex items-center gap-1 text-[12.5px] leading-4 text-[#6b7280]">
                       <Tag className="h-3.5 w-3.5" /> What type of food is this?
                     </p>
@@ -395,12 +441,15 @@ export default function EditListingModal({ listing, onClose, onSaved }: EditList
                         maxLength={MAX_DESC}
                         value={form.description}
                         onChange={handleChange('description')}
-                        className="h-24 w-full resize-none rounded-lg border border-[#e5e7eb] bg-white px-3 py-3 text-[14px] text-[#111827] outline-none transition placeholder:text-[#9ca3af] focus:border-[#ff6a00] focus:ring-2 focus:ring-orange-100"
+                        className={`h-24 w-full resize-none rounded-lg border bg-white px-3 py-3 text-[14px] text-[#111827] outline-none transition placeholder:text-[#9ca3af] focus:ring-2 focus:ring-orange-100 ${
+                            errors.description ? 'border-red-500 focus:border-red-500' : 'border-[#e5e7eb] focus:border-[#ff6a00]'
+                        }`}
                     />
                       <span className="absolute bottom-2 right-3 text-[12px] text-[#9ca3af]">
                       {form.description.length}/{MAX_DESC}
                     </span>
                     </div>
+                    {errors.description && <ErrMsg>{errors.description}</ErrMsg>}
                   </div>
 
                   <div>
@@ -417,7 +466,7 @@ export default function EditListingModal({ listing, onClose, onSaved }: EditList
                 </div>
               </section>
 
-              {error && <ErrMsg>{error}</ErrMsg>}
+              {submitError && <ErrMsg>{submitError}</ErrMsg>}
 
               <div className="mt-6 border-t border-[#e5e7eb] pt-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
